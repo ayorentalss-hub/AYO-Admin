@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect, Component, type ErrorInfo, type ReactNode } from 'react';
 import { Header } from './components/Header';
 import { Sidebar, type TabType } from './components/Sidebar';

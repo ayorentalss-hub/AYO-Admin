@@ -4,29 +4,38 @@ const STORAGE_KEY_TOKEN = 'ayo_admin_token';
 const STORAGE_KEY_BASE_URL = 'ayo_admin_base_url';
 
 export const getBaseUrl = (): string => {
-  const saved = localStorage.getItem(STORAGE_KEY_BASE_URL);
-  if (saved) return saved;
-  // If running on a different system or remote origin, direct API calls to ngrok
-  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-    return 'https://costly-internidal-moses.ngrok-free.dev/api/v1';
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem(STORAGE_KEY_BASE_URL);
+    if (saved) return saved;
+    // If running on a different system or remote origin, direct API calls to ngrok
+    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      return 'https://costly-internidal-moses.ngrok-free.dev/api/v1';
+    }
   }
   return '/api/v1';
 };
 
 export const setBaseUrl = (url: string) => {
-  localStorage.setItem(STORAGE_KEY_BASE_URL, url);
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(STORAGE_KEY_BASE_URL, url);
+  }
 };
 
 export const getToken = (): string => {
+  if (typeof window === 'undefined') return '';
   return localStorage.getItem(STORAGE_KEY_TOKEN) || '';
 };
 
 export const setToken = (token: string) => {
-  localStorage.setItem(STORAGE_KEY_TOKEN, token);
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(STORAGE_KEY_TOKEN, token);
+  }
 };
 
 export const clearToken = () => {
-  localStorage.removeItem(STORAGE_KEY_TOKEN);
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(STORAGE_KEY_TOKEN);
+  }
 };
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -68,7 +77,9 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     const errorMsg = json?.error?.message || json?.message || `HTTP ${res.status}: ${res.statusText}`;
     if (res.status === 401) {
       clearToken();
-      window.dispatchEvent(new CustomEvent('ayo_auth_unauthorized', { detail: { message: errorMsg } }));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('ayo_auth_unauthorized', { detail: { message: errorMsg } }));
+      }
     }
     throw new Error(errorMsg);
   }
