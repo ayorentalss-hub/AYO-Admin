@@ -44,7 +44,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   const token = getToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'ngrok-skip-browser-warning': 'true',
+    ...(baseUrl.includes('ngrok') ? { 'ngrok-skip-browser-warning': 'true' } : {}),
     ...(options.headers as Record<string, string>),
   };
 
