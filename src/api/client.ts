@@ -7,12 +7,11 @@ export const getBaseUrl = (): string => {
   if (typeof window !== 'undefined') {
     const saved = localStorage.getItem(STORAGE_KEY_BASE_URL);
     if (saved) return saved;
-    // If running on a different system or remote origin, direct API calls to ngrok
-    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-      return 'https://costly-internidal-moses.ngrok-free.dev/api/v1';
-    }
   }
-  return '/api/v1';
+  return (
+    process.env.NEXT_PUBLIC_API_URL ||
+    'https://ayo-platform-api-1015630533512.europe-west1.run.app/api/v1'
+  );
 };
 
 export const setBaseUrl = (url: string) => {

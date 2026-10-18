@@ -6,7 +6,7 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'https://costly-internidal-moses.ngrok-free.dev/api/:path*',
+        destination: 'https://ayo-platform-api-1015630533512.europe-west1.run.app/api/:path*',
       },
     ];
   },
