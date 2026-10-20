@@ -306,7 +306,7 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onRefreshStats }) =>
                     <span>Inspect Docs</span>
                   </button>
 
-                  {v.status === 'PENDING_REVIEW' && (
+                  {v.status !== 'ACTIVE' && (
                     <>
                       <button
                         onClick={() => handleApprove(v)}
@@ -607,7 +607,7 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onRefreshStats }) =>
               >
                 Close
               </button>
-              {selectedVehicle.status === 'PENDING_REVIEW' && (
+              {selectedVehicle.status !== 'ACTIVE' ? (
                 <div className="flex items-center space-x-3">
                   <button
                     onClick={() => {
@@ -620,9 +620,26 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onRefreshStats }) =>
                   </button>
                   <button
                     onClick={() => handleApprove(selectedVehicle)}
-                    className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-lg shadow-emerald-950/40 transition"
+                    className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-lg shadow-emerald-950/40 transition flex items-center space-x-1.5"
                   >
-                    Approve Listing
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    <span>Approve Listing</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-3">
+                  <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center space-x-1.5">
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    <span>Listing Active</span>
+                  </span>
+                  <button
+                    onClick={() => {
+                      setRejectingVehicle(selectedVehicle);
+                      setRejectReason('');
+                    }}
+                    className="px-4 py-2 text-xs font-bold text-rose-400 hover:text-white bg-rose-500/10 hover:bg-rose-600 border border-rose-500/20 rounded-xl transition"
+                  >
+                    Revoke Listing
                   </button>
                 </div>
               )}

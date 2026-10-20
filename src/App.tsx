@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, Component, type ErrorInfo, type ReactNode } from 'react';
+import { Provider } from 'react-redux';
+import { store } from './store';
 import { Header } from './components/Header';
 import { Sidebar, type TabType } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
@@ -9,6 +11,7 @@ import { UsersView } from './components/UsersView';
 import { TripsView } from './components/TripsView';
 import { PayoutsView } from './components/PayoutsView';
 import { AuditLogsView } from './components/AuditLogsView';
+import { SettingsView } from './components/SettingsView';
 import { LoginPage } from './components/LoginPage';
 import { type LedgerSummary } from './types';
 import { api, getToken, clearToken } from './api/client';
@@ -81,14 +84,45 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 }
 
-export const App: React.FC = () => {
+const getInitialTab = (): TabType => {
+  if (typeof window !== 'undefined') {
+    const hash = window.location.hash.replace(/^#\/?/, '') as TabType;
+    const validTabs: TabType[] = ['dashboard', 'vehicles', 'users', 'trips', 'payouts', 'audit', 'settings'];
+    if (validTabs.includes(hash)) return hash;
+    const saved = localStorage.getItem('ayo_admin_active_tab') as TabType;
+    if (validTabs.includes(saved)) return saved;
+  }
+  return 'dashboard';
+};
+
+export const AdminDashboardApp: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(Boolean(getToken()));
-  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  const [activeTab, setActiveTab] = useState<TabType>(getInitialTab);
   const [ledger, setLedger] = useState<LedgerSummary | null>(null);
   const [alerts, setAlerts] = useState<any[]>([]);
   const [pendingCount, setPendingCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+
+  const handleTabChange = (tab: TabType) => {
+    setActiveTab(tab);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ayo_admin_active_tab', tab);
+      window.location.hash = tab;
+    }
+  };
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace(/^#\/?/, '') as TabType;
+      const validTabs: TabType[] = ['dashboard', 'vehicles', 'users', 'trips', 'payouts', 'audit', 'settings'];
+      if (validTabs.includes(hash)) {
+        setActiveTab(hash);
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   const handleLogout = () => {
     clearToken();
@@ -152,40 +186,50 @@ export const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans">
-      <Header
-        onRefresh={fetchGlobalStats}
-        isLoading={isLoading}
-        onLogout={handleLogout}
-        onToggleMobileMenu={() => setMobileMenuOpen((prev) => !prev)}
-      />
-
-      <div className="flex-1 flex overflow-hidden">
-        <Sidebar
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          pendingCount={pendingCount}
-          mobileOpen={mobileMenuOpen}
-          onCloseMobile={() => setMobileMenuOpen(false)}
+        <Header
+          onRefresh={fetchGlobalStats}
+          isLoading={isLoading}
+          onLogout={handleLogout}
+          onToggleMobileMenu={() => setMobileMenuOpen((prev) => !prev)}
         />
 
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8 max-w-7xl mx-auto w-full">
-          {activeTab === 'dashboard' && (
-            <DashboardView ledger={ledger} alerts={alerts} onRefresh={fetchGlobalStats} />
-          )}
+        <div className="flex-1 flex overflow-hidden">
+          <Sidebar
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+            pendingCount={pendingCount}
+            mobileOpen={mobileMenuOpen}
+            onCloseMobile={() => setMobileMenuOpen(false)}
+          />
 
-          {activeTab === 'vehicles' && <VehiclesView onRefreshStats={fetchGlobalStats} />}
+          <main className="flex-1 overflow-y-auto p-6 lg:p-8 max-w-7xl mx-auto w-full">
+            {activeTab === 'dashboard' && (
+              <DashboardView ledger={ledger} alerts={alerts} onRefresh={fetchGlobalStats} />
+            )}
 
-          {activeTab === 'users' && <UsersView />}
+            {activeTab === 'vehicles' && <VehiclesView onRefreshStats={fetchGlobalStats} />}
 
-          {activeTab === 'trips' && <TripsView />}
+            {activeTab === 'users' && <UsersView />}
 
-          {activeTab === 'payouts' && <PayoutsView />}
+            {activeTab === 'trips' && <TripsView />}
 
-          {activeTab === 'audit' && <AuditLogsView />}
-        </main>
+            {activeTab === 'payouts' && <PayoutsView />}
+
+            {activeTab === 'audit' && <AuditLogsView />}
+
+            {activeTab === 'settings' && <SettingsView />}
+          </main>
+        </div>
       </div>
-    </div>
     </ErrorBoundary>
+  );
+};
+
+export const App: React.FC = () => {
+  return (
+    <Provider store={store}>
+      <AdminDashboardApp />
+    </Provider>
   );
 };
 

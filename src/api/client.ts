@@ -204,4 +204,23 @@ export const api = {
       `/admin/audit-logs${query}`,
     );
   },
+
+  // Settings & Security
+  getSettings: async () => {
+    return request<{ listing_fee_paise: number; listing_fee_inr: number; listing_fee_bypass: boolean; currency: string; updated_at?: string }>('/admin/settings');
+  },
+
+  updateSettings: async (dto: { listing_fee_inr?: number; listing_fee_paise?: number; listing_fee_bypass?: boolean }) => {
+    return request<any>('/admin/settings', {
+      method: 'PATCH',
+      body: JSON.stringify(dto),
+    });
+  },
+
+  changePassword: async (dto: { old_password?: string; new_password?: string }) => {
+    return request<any>('/admin/change-password', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  },
 };
