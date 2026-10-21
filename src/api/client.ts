@@ -1,4 +1,4 @@
-import type { AuditLogItem, HostKycDetails, LedgerSummary, PayoutItem, TripItem, UserItem, VehicleDocument, VehicleItem } from '../types';
+import type { AuditLogItem, HostKycDetails, LedgerSummary, PaymentItem, PayoutItem, TripItem, UserItem, VehicleDocument, VehicleItem } from '../types';
 
 const STORAGE_KEY_TOKEN = 'ayo_admin_token';
 const STORAGE_KEY_BASE_URL = 'ayo_admin_base_url';
@@ -202,6 +202,16 @@ export const api = {
     const query = action && action !== 'ALL' ? `?action=${action}&page=${page}&limit=${limit}` : `?page=${page}&limit=${limit}`;
     return request<{ items: AuditLogItem[]; total: number; page: number; limit: number; total_pages: number }>(
       `/admin/audit-logs${query}`,
+    );
+  },
+
+  // Payments & Captured Webhooks
+  getPayments: async (page = 1, limit = 20, purpose?: string, status?: string) => {
+    let query = `?page=${page}&limit=${limit}`;
+    if (purpose && purpose !== 'ALL') query += `&purpose=${purpose}`;
+    if (status && status !== 'ALL') query += `&status=${status}`;
+    return request<{ items: PaymentItem[]; total: number; page: number; limit: number; total_pages: number }>(
+      `/admin/payments${query}`,
     );
   },
 

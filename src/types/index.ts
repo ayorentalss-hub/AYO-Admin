@@ -221,3 +221,30 @@ export interface AuditLogItem {
   details?: Record<string, any> | null;
   created_at: string;
 }
+
+export interface PaymentItem {
+  id: string;
+  payment_id: string | null;
+  order_id: string | null;
+  purpose: 'LISTING_FEE' | 'BOOKING';
+  amount_paise: number;
+  amount_rupees: number;
+  status: 'CREATED' | 'CAPTURED' | 'FAILED' | 'REFUND_PENDING' | 'REFUNDED';
+  user?: {
+    id: string;
+    name: string;
+    phone: string;
+    email?: string;
+  } | null;
+  vehicle?: {
+    id: string;
+    make: string;
+    model: string;
+    name?: string;
+    registration_number?: string;
+  } | null;
+  booking_id?: string | null;
+  refund_id?: string | null;
+  created_at: string;
+}
+

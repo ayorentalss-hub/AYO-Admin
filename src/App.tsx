@@ -10,6 +10,7 @@ import { VehiclesView } from './components/VehiclesView';
 import { UsersView } from './components/UsersView';
 import { TripsView } from './components/TripsView';
 import { PayoutsView } from './components/PayoutsView';
+import { PaymentsView } from './components/PaymentsView';
 import { AuditLogsView } from './components/AuditLogsView';
 import { SettingsView } from './components/SettingsView';
 import { LoginPage } from './components/LoginPage';
@@ -87,7 +88,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 const getInitialTab = (): TabType => {
   if (typeof window !== 'undefined') {
     const hash = window.location.hash.replace(/^#\/?/, '') as TabType;
-    const validTabs: TabType[] = ['dashboard', 'vehicles', 'users', 'trips', 'payouts', 'audit', 'settings'];
+    const validTabs: TabType[] = ['dashboard', 'vehicles', 'users', 'trips', 'payments', 'payouts', 'audit', 'settings'];
     if (validTabs.includes(hash)) return hash;
     const saved = localStorage.getItem('ayo_admin_active_tab') as TabType;
     if (validTabs.includes(saved)) return saved;
@@ -115,7 +116,7 @@ export const AdminDashboardApp: React.FC = () => {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace(/^#\/?/, '') as TabType;
-      const validTabs: TabType[] = ['dashboard', 'vehicles', 'users', 'trips', 'payouts', 'audit', 'settings'];
+      const validTabs: TabType[] = ['dashboard', 'vehicles', 'users', 'trips', 'payments', 'payouts', 'audit', 'settings'];
       if (validTabs.includes(hash)) {
         setActiveTab(hash);
       }
@@ -212,6 +213,8 @@ export const AdminDashboardApp: React.FC = () => {
             {activeTab === 'users' && <UsersView />}
 
             {activeTab === 'trips' && <TripsView />}
+
+            {activeTab === 'payments' && <PaymentsView />}
 
             {activeTab === 'payouts' && <PayoutsView />}
 
