@@ -141,6 +141,19 @@ export const AdminDashboardApp: React.FC = () => {
     return () => window.removeEventListener('ayo_auth_unauthorized', onAuthUnauthorized);
   }, []);
 
+  // Proactive Session Heartbeat: checks every 5 seconds if session was revoked by login on another device
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const interval = setInterval(async () => {
+      try {
+        await api.getProfile();
+      } catch {
+        // If token revoked, client.ts automatically triggers ayo_auth_unauthorized and logs out
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
+
   const fetchGlobalStats = async () => {
     if (!getToken()) {
       handleLogout();
