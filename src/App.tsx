@@ -141,17 +141,24 @@ export const AdminDashboardApp: React.FC = () => {
     return () => window.removeEventListener('ayo_auth_unauthorized', onAuthUnauthorized);
   }, []);
 
-  // Proactive Session Heartbeat: checks every 5 seconds if session was revoked by login on another device
+  // Zero-cost session check: Only checks when user switches back to this tab (no continuous 5s polling costs)
   useEffect(() => {
     if (!isAuthenticated) return;
-    const interval = setInterval(async () => {
-      try {
-        await api.getProfile();
-      } catch {
-        // If token revoked, client.ts automatically triggers ayo_auth_unauthorized and logs out
+    const checkSessionOnFocus = async () => {
+      if (document.visibilityState === 'visible') {
+        try {
+          await api.getProfile();
+        } catch {
+          // If token was revoked on another device, client.ts automatically triggers ayo_auth_unauthorized and logs out
+        }
       }
-    }, 5000);
-    return () => clearInterval(interval);
+    };
+    window.addEventListener('focus', checkSessionOnFocus);
+    document.addEventListener('visibilitychange', checkSessionOnFocus);
+    return () => {
+      window.removeEventListener('focus', checkSessionOnFocus);
+      document.removeEventListener('visibilitychange', checkSessionOnFocus);
+    };
   }, [isAuthenticated]);
 
   const fetchGlobalStats = async () => {
