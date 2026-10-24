@@ -4,11 +4,21 @@ import React, { useState, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../store';
 import { fetchSettingsThunk, updateSettingsThunk } from '../store/slices/settingsSlice';
 import { api } from '../api/client';
-import { Settings, Lock, IndianRupee, Save, ShieldCheck, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Settings, Lock, IndianRupee, Save, ShieldCheck, CheckCircle2, AlertCircle, Loader2, Shield, Gauge, Coins } from 'lucide-react';
 
 export const SettingsView: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { listingFeeInr, listingFeeBypass, loading } = useAppSelector((state) => state.settings);
+  const {
+    listingFeeInr,
+    listingFeeBypass,
+    convenienceFeeInr,
+    refundableDepositInr,
+    coverPlusFeeInr,
+    standardCoverFeeInr,
+    unlimitedKmMultiplier,
+    extraKmDefaultRateInr,
+    loading,
+  } = useAppSelector((state) => state.settings);
 
   // Listing Fee form state
   const [newFee, setNewFee] = useState<string>('499');
@@ -16,6 +26,17 @@ export const SettingsView: React.FC = () => {
   const [feeSaving, setFeeSaving] = useState<boolean>(false);
   const [feeSuccess, setFeeSuccess] = useState<string | null>(null);
   const [feeError, setFeeError] = useState<string | null>(null);
+
+  // Customer Dynamic Trip Pricing state (Zoomcar style)
+  const [convenienceFee, setConvenienceFee] = useState<string>('791');
+  const [deposit, setDeposit] = useState<string>('1000');
+  const [coverPlus, setCoverPlus] = useState<string>('1919');
+  const [standardCover, setStandardCover] = useState<string>('499');
+  const [unlimitedMultiplier, setUnlimitedMultiplier] = useState<string>('1.2');
+  const [extraKmRate, setExtraKmRate] = useState<string>('11');
+  const [pricingSaving, setPricingSaving] = useState<boolean>(false);
+  const [pricingSuccess, setPricingSuccess] = useState<string | null>(null);
+  const [pricingError, setPricingError] = useState<string | null>(null);
 
   // Password change state
   const [oldPassword, setOldPassword] = useState<string>('');
@@ -36,7 +57,34 @@ export const SettingsView: React.FC = () => {
     if (listingFeeBypass !== undefined) {
       setFeeBypass(listingFeeBypass);
     }
-  }, [listingFeeInr, listingFeeBypass]);
+    if (convenienceFeeInr !== undefined) {
+      setConvenienceFee(String(convenienceFeeInr));
+    }
+    if (refundableDepositInr !== undefined) {
+      setDeposit(String(refundableDepositInr));
+    }
+    if (coverPlusFeeInr !== undefined) {
+      setCoverPlus(String(coverPlusFeeInr));
+    }
+    if (standardCoverFeeInr !== undefined) {
+      setStandardCover(String(standardCoverFeeInr));
+    }
+    if (unlimitedKmMultiplier !== undefined) {
+      setUnlimitedMultiplier(String(unlimitedKmMultiplier));
+    }
+    if (extraKmDefaultRateInr !== undefined) {
+      setExtraKmRate(String(extraKmDefaultRateInr));
+    }
+  }, [
+    listingFeeInr,
+    listingFeeBypass,
+    convenienceFeeInr,
+    refundableDepositInr,
+    coverPlusFeeInr,
+    standardCoverFeeInr,
+    unlimitedKmMultiplier,
+    extraKmDefaultRateInr,
+  ]);
 
   const handleSaveListingFee = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,6 +112,45 @@ export const SettingsView: React.FC = () => {
       setFeeError(err.message || 'Failed to update listing fee.');
     } finally {
       setFeeSaving(false);
+    }
+  };
+
+  const handleSavePricingSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPricingSaving(true);
+    setPricingSuccess(null);
+    setPricingError(null);
+
+    const convNum = parseInt(convenienceFee, 10);
+    const depNum = parseInt(deposit, 10);
+    const cpNum = parseInt(coverPlus, 10);
+    const scNum = parseInt(standardCover, 10);
+    const multNum = parseFloat(unlimitedMultiplier);
+    const kmNum = parseInt(extraKmRate, 10);
+
+    if (isNaN(convNum) || isNaN(depNum) || isNaN(cpNum) || isNaN(scNum) || isNaN(multNum) || isNaN(kmNum)) {
+      setPricingError('Please enter valid numeric values for all pricing fields.');
+      setPricingSaving(false);
+      return;
+    }
+
+    try {
+      await dispatch(
+        updateSettingsThunk({
+          convenience_fee_inr: convNum,
+          refundable_deposit_inr: depNum,
+          cover_plus_fee_inr: cpNum,
+          standard_cover_fee_inr: scNum,
+          unlimited_km_multiplier: multNum,
+          extra_km_default_rate_inr: kmNum,
+        }),
+      ).unwrap();
+      setPricingSuccess('Customer trip pricing, convenience fee & deposit settings updated successfully!');
+      setTimeout(() => setPricingSuccess(null), 5000);
+    } catch (err: any) {
+      setPricingError(err.message || 'Failed to update pricing settings.');
+    } finally {
+      setPricingSaving(false);
     }
   };
 
@@ -263,6 +350,186 @@ export const SettingsView: React.FC = () => {
             </button>
           </form>
         </div>
+      </div>
+
+      {/* 3. Customer Trip Pricing & Protection Breakdown (Zoomcar Style) */}
+      <div className="p-6 bg-slate-900 border border-slate-800 rounded-3xl space-y-6 shadow-sm">
+        <div className="flex items-center space-x-3">
+          <div className="p-2.5 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
+            <Coins className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-white">Customer Trip Pricing & Protection Policies (Zoomcar Style)</h3>
+            <p className="text-[11px] text-slate-400">
+              Live configuration for Customer Vehicle Detail Screen, dynamic price quotes, convenience fees, security deposits, and protection plans.
+            </p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSavePricingSettings} className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {/* Convenience Fee */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-slate-300">
+                Convenience Fee (₹ INR)
+              </label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500 font-bold text-xs">
+                  ₹
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={convenienceFee}
+                  onChange={(e) => setConvenienceFee(e.target.value)}
+                  className="w-full pl-8 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-purple-500 transition"
+                  placeholder="e.g. 791"
+                />
+              </div>
+              <p className="text-[10px] text-slate-500">Platform convenience fee charged on customer checkout</p>
+            </div>
+
+            {/* Refundable Security Deposit */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-slate-300">
+                Refundable Deposit (₹ INR)
+              </label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500 font-bold text-xs">
+                  ₹
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="100"
+                  value={deposit}
+                  onChange={(e) => setDeposit(e.target.value)}
+                  className="w-full pl-8 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-purple-500 transition"
+                  placeholder="e.g. 1000"
+                />
+              </div>
+              <p className="text-[10px] text-slate-500">Refundable security deposit (Pay Now or Pay Later)</p>
+            </div>
+
+            {/* Cover PLUS Fee */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-slate-300">
+                Cover PLUS Fee (₹ INR)
+              </label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500 font-bold text-xs">
+                  ₹
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={coverPlus}
+                  onChange={(e) => setCoverPlus(e.target.value)}
+                  className="w-full pl-8 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-purple-500 transition"
+                  placeholder="e.g. 1919"
+                />
+              </div>
+              <p className="text-[10px] text-slate-500">Enhanced protection plan (Max ₹2,999 liability)</p>
+            </div>
+
+            {/* Standard Cover Fee */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-slate-300">
+                Standard Cover Fee (₹ INR)
+              </label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500 font-bold text-xs">
+                  ₹
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={standardCover}
+                  onChange={(e) => setStandardCover(e.target.value)}
+                  className="w-full pl-8 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-purple-500 transition"
+                  placeholder="e.g. 499"
+                />
+              </div>
+              <p className="text-[10px] text-slate-500">Basic trip protection (Max ₹9,999 liability)</p>
+            </div>
+
+            {/* Unlimited Km Multiplier */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-slate-300">
+                Unlimited Km Rate Multiplier
+              </label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500 font-bold text-xs">
+                  ×
+                </span>
+                <input
+                  type="number"
+                  min="1.0"
+                  max="3.0"
+                  step="0.05"
+                  value={unlimitedMultiplier}
+                  onChange={(e) => setUnlimitedMultiplier(e.target.value)}
+                  className="w-full pl-8 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-purple-500 transition"
+                  placeholder="e.g. 1.2"
+                />
+              </div>
+              <p className="text-[10px] text-slate-500">Multiplier over base rent (e.g. 1.2 = +20% for Unlimited Kms)</p>
+            </div>
+
+            {/* Default Extra Km Rate */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-slate-300">
+                Default Extra Km Fee (₹/km)
+              </label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500 font-bold text-xs">
+                  ₹
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={extraKmRate}
+                  onChange={(e) => setExtraKmRate(e.target.value)}
+                  className="w-full pl-8 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-purple-500 transition"
+                  placeholder="e.g. 11"
+                />
+              </div>
+              <p className="text-[10px] text-slate-500">Default rate charged for excess km driven on limited packages</p>
+            </div>
+          </div>
+
+          {pricingSuccess && (
+            <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center space-x-2">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>{pricingSuccess}</span>
+            </div>
+          )}
+
+          {pricingError && (
+            <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center space-x-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{pricingError}</span>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
+            <p className="text-[11px] text-slate-500">
+              Changes reflect immediately on the Customer Vehicle Detail screen and dynamically calculate in real-time.
+            </p>
+            <button
+              type="submit"
+              disabled={pricingSaving || loading}
+              className="py-2.5 px-6 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 shadow-lg shadow-purple-950/40"
+            >
+              {pricingSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              <span>Save Pricing & Policy Settings</span>
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

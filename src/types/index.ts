@@ -27,6 +27,19 @@ export interface VehicleDocument {
   uploaded_at: string;
 }
 
+export interface VehiclePhotoMetaItem {
+  url: string;
+  raw_url?: string;
+  signed_url?: string | null;
+  category: 'cover' | 'exterior' | 'interior' | 'rear_trunk' | 'other';
+  status: 'PENDING' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+  rejectionReason?: string | null;
+  rejection_reason?: string | null;
+  reviewedAt?: string | null;
+  reviewed_at?: string | null;
+  reviewedBy?: string | null;
+}
+
 export interface VehicleInspectDetails {
   vehicle?: {
     id: string;
@@ -68,6 +81,28 @@ export interface VehicleInspectDetails {
   } | null;
   documents: VehicleDocument[];
   images: string[];
+  photos_meta?: VehiclePhotoMetaItem[];
+  photo_verifications?: {
+    cover: VehiclePhotoMetaItem[];
+    exterior: VehiclePhotoMetaItem[];
+    interior: VehiclePhotoMetaItem[];
+  };
+  expires_in?: number;
+}
+
+export interface PlatformSettings {
+  listing_fee_paise: number;
+  listing_fee_inr: number;
+  listing_fee_bypass: boolean;
+  convenience_fee_inr?: number;
+  convenience_fee_percent?: number;
+  refundable_deposit_inr?: number;
+  cover_plus_fee_inr?: number;
+  standard_cover_fee_inr?: number;
+  unlimited_km_multiplier?: number;
+  extra_km_default_rate_inr?: number;
+  currency: string;
+  updated_at?: string;
 }
 
 export interface VehicleItem {

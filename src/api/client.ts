@@ -1,4 +1,4 @@
-import type { AuditLogItem, HostKycDetails, LedgerSummary, PaymentItem, PayoutItem, TripItem, UserItem, VehicleDocument, VehicleItem } from '../types';
+import type { AuditLogItem, HostKycDetails, LedgerSummary, PaymentItem, PayoutItem, PlatformSettings, TripItem, UserItem, VehicleDocument, VehicleItem } from '../types';
 
 const STORAGE_KEY_TOKEN = 'ayo_admin_token';
 const STORAGE_KEY_BASE_URL = 'ayo_admin_base_url';
@@ -146,6 +146,22 @@ export const api = {
     });
   },
 
+  reviewVehiclePhoto: async (
+    vehicleId: string,
+    dto: { photo_url: string; status: 'APPROVED' | 'REJECTED'; reason?: string },
+  ) => {
+    return request<any>(`/admin/vehicles/${vehicleId}/photos/review`, {
+      method: 'PATCH',
+      body: JSON.stringify(dto),
+    });
+  },
+
+  approveAllVehiclePhotos: async (vehicleId: string) => {
+    return request<any>(`/admin/vehicles/${vehicleId}/photos/approve-all`, {
+      method: 'POST',
+    });
+  },
+
   // Users & Hosts Moderation
   getUsers: async (q = '', role = '', page = 1, limit = 20) => {
     const params = new URLSearchParams();
@@ -217,11 +233,11 @@ export const api = {
 
   // Settings & Security
   getSettings: async () => {
-    return request<{ listing_fee_paise: number; listing_fee_inr: number; listing_fee_bypass: boolean; currency: string; updated_at?: string }>('/admin/settings');
+    return request<PlatformSettings>('/admin/settings');
   },
 
-  updateSettings: async (dto: { listing_fee_inr?: number; listing_fee_paise?: number; listing_fee_bypass?: boolean }) => {
-    return request<any>('/admin/settings', {
+  updateSettings: async (dto: Partial<PlatformSettings>) => {
+    return request<PlatformSettings>('/admin/settings', {
       method: 'PATCH',
       body: JSON.stringify(dto),
     });

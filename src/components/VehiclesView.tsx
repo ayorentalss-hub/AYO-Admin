@@ -19,8 +19,10 @@ import {
   MapPin,
   Clock,
   UserCheck,
+  Check,
+  Eye,
 } from 'lucide-react';
-import type { VehicleDocument, VehicleItem, VehicleInspectDetails } from '../types';
+import type { VehicleDocument, VehicleItem, VehicleInspectDetails, VehiclePhotoMetaItem } from '../types';
 import { api } from '../api/client';
 import { ConfirmModal, NotificationModal, type ToastNotification } from './Modal';
 
@@ -41,6 +43,17 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onRefreshStats }) =>
   const [vehicleImages, setVehicleImages] = useState<string[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [inspectDetails, setInspectDetails] = useState<VehicleInspectDetails | null>(null);
+
+  // Photo Verification Review State (Image 2)
+  const [photoVerifications, setPhotoVerifications] = useState<{
+    cover: VehiclePhotoMetaItem[];
+    exterior: VehiclePhotoMetaItem[];
+    interior: VehiclePhotoMetaItem[];
+  }>({ cover: [], exterior: [], interior: [] });
+  const [photosMeta, setPhotosMeta] = useState<VehiclePhotoMetaItem[]>([]);
+  const [reviewingPhoto, setReviewingPhoto] = useState<VehiclePhotoMetaItem | null>(null);
+  const [photoRejectReason, setPhotoRejectReason] = useState<string>('Blurry or poor lighting');
+  const [photoActionLoading, setPhotoActionLoading] = useState<boolean>(false);
 
   // Action Modals State
   const [rejectingVehicle, setRejectingVehicle] = useState<VehicleItem | null>(null);
@@ -94,19 +107,140 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onRefreshStats }) =>
       const res: any = await api.getVehicleDocuments(v.id);
       const docs = Array.isArray(res) ? res : res?.documents || [];
       const images = Array.isArray(res?.images) ? res.images : [];
+      const pMeta: VehiclePhotoMetaItem[] = Array.isArray(res?.photos_meta)
+        ? res.photos_meta
+        : images.map((url: string, idx: number) => ({
+            url,
+            raw_url: url,
+            category: (idx === 0 ? 'cover' : idx === 1 ? 'interior' : idx === 2 ? 'rear_trunk' : 'exterior') as any,
+            status: 'APPROVED' as any,
+          }));
+      const pVerifs = res?.photo_verifications || {
+        cover: pMeta.filter((p) => p.category === 'cover'),
+        exterior: pMeta.filter((p) => p.category === 'exterior' || p.category === 'other'),
+        interior: pMeta.filter((p) => p.category === 'interior' || p.category === 'rear_trunk'),
+      };
+
       setDocuments(docs);
       setVehicleImages(images);
+      setPhotosMeta(pMeta);
+      setPhotoVerifications(pVerifs);
       setInspectDetails({
         host: res?.host || (v.host ? { ...v.host, name: v.host_name || v.host.name } : null),
         customer: res?.customer || null,
         vehicle: res?.vehicle || null,
         documents: docs,
         images,
+        photos_meta: pMeta,
+        photo_verifications: pVerifs,
       });
     } catch (err: any) {
       notify('error', 'Failed to load documents', err.message);
     } finally {
       setLoadingDocs(false);
+    }
+  };
+
+  const handleApprovePhoto = async (photo: VehiclePhotoMetaItem) => {
+    if (!selectedVehicle) return;
+    try {
+      setPhotoActionLoading(true);
+      const photoKey = photo.raw_url || photo.url;
+      await api.reviewVehiclePhoto(selectedVehicle.id, {
+        photo_url: photoKey,
+        status: 'APPROVED',
+      });
+
+      const updateList = (list: VehiclePhotoMetaItem[]) =>
+        list.map((item) =>
+          item.url === photo.url || item.raw_url === photoKey
+            ? { ...item, status: 'APPROVED' as const, rejectionReason: null, rejection_reason: null }
+            : item,
+        );
+
+      setPhotosMeta(updateList);
+      setPhotoVerifications((prev) => ({
+        cover: updateList(prev.cover),
+        exterior: updateList(prev.exterior),
+        interior: updateList(prev.interior),
+      }));
+      notify('success', 'Photo Approved', 'The vehicle photo was marked as APPROVED.');
+    } catch (err: any) {
+      notify('error', 'Action Failed', err.message);
+    } finally {
+      setPhotoActionLoading(false);
+    }
+  };
+
+  const handleOpenRejectPhotoModal = (photo: VehiclePhotoMetaItem) => {
+    setReviewingPhoto(photo);
+    setPhotoRejectReason('Blurry or poor lighting');
+  };
+
+  const handleConfirmRejectPhoto = async () => {
+    if (!selectedVehicle || !reviewingPhoto) return;
+    try {
+      setPhotoActionLoading(true);
+      const photoKey = reviewingPhoto.raw_url || reviewingPhoto.url;
+      await api.reviewVehiclePhoto(selectedVehicle.id, {
+        photo_url: photoKey,
+        status: 'REJECTED',
+        reason: photoRejectReason,
+      });
+
+      const updateList = (list: VehiclePhotoMetaItem[]) =>
+        list.map((item) =>
+          item.url === reviewingPhoto.url || item.raw_url === photoKey
+            ? {
+                ...item,
+                status: 'REJECTED' as const,
+                rejectionReason: photoRejectReason,
+                rejection_reason: photoRejectReason,
+              }
+            : item,
+        );
+
+      setPhotosMeta(updateList);
+      setPhotoVerifications((prev) => ({
+        cover: updateList(prev.cover),
+        exterior: updateList(prev.exterior),
+        interior: updateList(prev.interior),
+      }));
+      setReviewingPhoto(null);
+      setPhotoRejectReason('');
+      notify('success', 'Photo Rejected', 'Rejection recorded and host requested to re-upload.');
+    } catch (err: any) {
+      notify('error', 'Rejection Failed', err.message);
+    } finally {
+      setPhotoActionLoading(false);
+    }
+  };
+
+  const handleApproveAllPhotos = async () => {
+    if (!selectedVehicle) return;
+    try {
+      setPhotoActionLoading(true);
+      await api.approveAllVehiclePhotos(selectedVehicle.id);
+
+      const markApproved = (list: VehiclePhotoMetaItem[]) =>
+        list.map((item) => ({
+          ...item,
+          status: 'APPROVED' as const,
+          rejectionReason: null,
+          rejection_reason: null,
+        }));
+
+      setPhotosMeta(markApproved);
+      setPhotoVerifications((prev) => ({
+        cover: markApproved(prev.cover),
+        exterior: markApproved(prev.exterior),
+        interior: markApproved(prev.interior),
+      }));
+      notify('success', 'All Photos Approved', 'All category photos for this vehicle have been approved.');
+    } catch (err: any) {
+      notify('error', 'Batch Approval Failed', err.message);
+    } finally {
+      setPhotoActionLoading(false);
     }
   };
 
@@ -500,38 +634,316 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onRefreshStats }) =>
                     </div>
                   </div>
 
-                  {/* Vehicle Gallery Photos */}
-                  {vehicleImages && vehicleImages.length > 0 && (
-                    <div className="space-y-2.5">
-                      <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-1.5">
-                        <ImageIcon className="w-4 h-4 text-purple-400" />
-                        <span>Vehicle Gallery Photos ({vehicleImages.length})</span>
-                      </h4>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        {vehicleImages.map((imgUrl, idx) => (
-                          <a
-                            key={idx}
-                            href={imgUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="aspect-video rounded-2xl overflow-hidden border border-slate-800 hover:border-red-500 bg-slate-950 transition group relative"
-                          >
-                            <img
-                              src={imgUrl}
-                              alt={`Car photo ${idx + 1}`}
-                              className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = 'none';
-                              }}
-                            />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-white text-xs font-semibold">
-                              Open Full
-                            </div>
-                          </a>
-                        ))}
+                  {/* Image Verification Section (Image 2 style) */}
+                  <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-slate-950 border border-slate-800">
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
+                          <ImageIcon className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <h4 className="text-sm font-bold text-white">Vehicle Image Verification</h4>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                              {photoVerifications.cover.length + photoVerifications.exterior.length + photoVerifications.interior.length} Photos
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400">
+                            Audit cover, exterior, and interior photos. Approve clean shots or reject with re-upload notes.
+                          </p>
+                        </div>
                       </div>
+
+                      <button
+                        type="button"
+                        onClick={handleApproveAllPhotos}
+                        disabled={photoActionLoading}
+                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold transition flex items-center justify-center space-x-2 shadow-lg shadow-emerald-950/40 shrink-0"
+                      >
+                        {photoActionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                        <span>Approve All Photos</span>
+                      </button>
                     </div>
-                  )}
+
+                    {/* Category 1: Cover Image */}
+                    <div className="space-y-3 p-4 rounded-2xl bg-slate-950/50 border border-slate-800/80">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                          <h5 className="text-xs font-bold text-white uppercase tracking-wider">
+                            Cover Image ({photoVerifications.cover.length})
+                          </h5>
+                        </div>
+                        <span className="text-[10px] text-slate-400">
+                          Primary card thumbnail shown to customers in search results
+                        </span>
+                      </div>
+
+                      {photoVerifications.cover.length === 0 ? (
+                        <p className="text-xs text-slate-500 italic p-3 text-center border border-dashed border-slate-800 rounded-xl">
+                          No cover photo uploaded yet.
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {photoVerifications.cover.map((p, idx) => (
+                            <div key={idx} className="p-3 rounded-2xl bg-slate-900 border border-slate-800 space-y-2.5 transition hover:border-slate-700">
+                              <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-950 border border-slate-800 group">
+                                <img
+                                  src={p.signed_url || p.url}
+                                  alt="Cover Photo"
+                                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                                />
+                                <a
+                                  href={p.signed_url || p.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-white text-[11px] font-bold"
+                                >
+                                  <Eye className="w-3.5 h-3.5 mr-1" />
+                                  Full View
+                                </a>
+                              </div>
+
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="text-[11px] font-medium text-slate-300">
+                                  Cover Photo (Hero)
+                                </span>
+                                {p.status === 'APPROVED' ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center space-x-1 shrink-0">
+                                    <CheckCircle className="w-3 h-3" />
+                                    <span>Approved</span>
+                                  </span>
+                                ) : p.status === 'REJECTED' ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center space-x-1 shrink-0">
+                                    <XCircle className="w-3 h-3" />
+                                    <span>Rejected</span>
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center space-x-1 shrink-0">
+                                    <Clock className="w-3 h-3" />
+                                    <span>Pending</span>
+                                  </span>
+                                )}
+                              </div>
+
+                              {p.status === 'REJECTED' && (p.rejectionReason || p.rejection_reason) && (
+                                <p className="text-[10px] text-rose-400 bg-rose-500/10 p-1.5 rounded-lg border border-rose-500/20 truncate" title={p.rejectionReason || p.rejection_reason || ''}>
+                                  Note: {p.rejectionReason || p.rejection_reason}
+                                </p>
+                              )}
+
+                              <div className="flex items-center space-x-2 pt-1 border-t border-slate-800/80">
+                                <button
+                                  type="button"
+                                  onClick={() => handleApprovePhoto(p)}
+                                  disabled={photoActionLoading || p.status === 'APPROVED'}
+                                  className="flex-1 py-1.5 px-2 rounded-xl text-[11px] font-bold bg-emerald-600/15 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 disabled:opacity-30 transition flex items-center justify-center space-x-1"
+                                >
+                                  <Check className="w-3 h-3" />
+                                  <span>Approve</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenRejectPhotoModal(p)}
+                                  disabled={photoActionLoading}
+                                  className="flex-1 py-1.5 px-2 rounded-xl text-[11px] font-bold bg-rose-600/15 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 disabled:opacity-30 transition flex items-center justify-center space-x-1"
+                                >
+                                  <X className="w-3 h-3" />
+                                  <span>Reject</span>
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Category 2: Exterior Images */}
+                    <div className="space-y-3 p-4 rounded-2xl bg-slate-950/50 border border-slate-800/80">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                          <h5 className="text-xs font-bold text-white uppercase tracking-wider">
+                            Exterior Images ({photoVerifications.exterior.length})
+                          </h5>
+                        </div>
+                        <span className="text-[10px] text-slate-400">
+                          Vehicle body, angles, paint condition & license plates
+                        </span>
+                      </div>
+
+                      {photoVerifications.exterior.length === 0 ? (
+                        <p className="text-xs text-slate-500 italic p-3 text-center border border-dashed border-slate-800 rounded-xl">
+                          No exterior photos uploaded yet.
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {photoVerifications.exterior.map((p, idx) => (
+                            <div key={idx} className="p-3 rounded-2xl bg-slate-900 border border-slate-800 space-y-2.5 transition hover:border-slate-700">
+                              <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-950 border border-slate-800 group">
+                                <img
+                                  src={p.signed_url || p.url}
+                                  alt={`Exterior Photo ${idx + 1}`}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                                />
+                                <a
+                                  href={p.signed_url || p.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-white text-[11px] font-bold"
+                                >
+                                  <Eye className="w-3.5 h-3.5 mr-1" />
+                                  Full View
+                                </a>
+                              </div>
+
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="text-[11px] font-medium text-slate-300 truncate max-w-[120px]">
+                                  Exterior #{idx + 1}
+                                </span>
+                                {p.status === 'APPROVED' ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center space-x-1 shrink-0">
+                                    <CheckCircle className="w-3 h-3" />
+                                    <span>Approved</span>
+                                  </span>
+                                ) : p.status === 'REJECTED' ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center space-x-1 shrink-0">
+                                    <XCircle className="w-3 h-3" />
+                                    <span>Rejected</span>
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center space-x-1 shrink-0">
+                                    <Clock className="w-3 h-3" />
+                                    <span>Pending</span>
+                                  </span>
+                                )}
+                              </div>
+
+                              {p.status === 'REJECTED' && (p.rejectionReason || p.rejection_reason) && (
+                                <p className="text-[10px] text-rose-400 bg-rose-500/10 p-1.5 rounded-lg border border-rose-500/20 truncate" title={p.rejectionReason || p.rejection_reason || ''}>
+                                  Note: {p.rejectionReason || p.rejection_reason}
+                                </p>
+                              )}
+
+                              <div className="flex items-center space-x-2 pt-1 border-t border-slate-800/80">
+                                <button
+                                  type="button"
+                                  onClick={() => handleApprovePhoto(p)}
+                                  disabled={photoActionLoading || p.status === 'APPROVED'}
+                                  className="flex-1 py-1.5 px-2 rounded-xl text-[11px] font-bold bg-emerald-600/15 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 disabled:opacity-30 transition flex items-center justify-center space-x-1"
+                                >
+                                  <Check className="w-3 h-3" />
+                                  <span>Approve</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenRejectPhotoModal(p)}
+                                  disabled={photoActionLoading}
+                                  className="flex-1 py-1.5 px-2 rounded-xl text-[11px] font-bold bg-rose-600/15 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 disabled:opacity-30 transition flex items-center justify-center space-x-1"
+                                >
+                                  <X className="w-3 h-3" />
+                                  <span>Reject</span>
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Category 3: Interior Images */}
+                    <div className="space-y-3 p-4 rounded-2xl bg-slate-950/50 border border-slate-800/80">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+                          <h5 className="text-xs font-bold text-white uppercase tracking-wider">
+                            Interior Images ({photoVerifications.interior.length})
+                          </h5>
+                        </div>
+                        <span className="text-[10px] text-slate-400">
+                          Cockpit, dashboard, infotainment, steering & seats
+                        </span>
+                      </div>
+
+                      {photoVerifications.interior.length === 0 ? (
+                        <p className="text-xs text-slate-500 italic p-3 text-center border border-dashed border-slate-800 rounded-xl">
+                          No interior photos uploaded yet.
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {photoVerifications.interior.map((p, idx) => (
+                            <div key={idx} className="p-3 rounded-2xl bg-slate-900 border border-slate-800 space-y-2.5 transition hover:border-slate-700">
+                              <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-950 border border-slate-800 group">
+                                <img
+                                  src={p.signed_url || p.url}
+                                  alt={`Interior Photo ${idx + 1}`}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                                />
+                                <a
+                                  href={p.signed_url || p.url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition text-white text-[11px] font-bold"
+                                >
+                                  <Eye className="w-3.5 h-3.5 mr-1" />
+                                  Full View
+                                </a>
+                              </div>
+
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="text-[11px] font-medium text-slate-300 truncate max-w-[120px]">
+                                  Interior #{idx + 1}
+                                </span>
+                                {p.status === 'APPROVED' ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center space-x-1 shrink-0">
+                                    <CheckCircle className="w-3 h-3" />
+                                    <span>Approved</span>
+                                  </span>
+                                ) : p.status === 'REJECTED' ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center space-x-1 shrink-0">
+                                    <XCircle className="w-3 h-3" />
+                                    <span>Rejected</span>
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center space-x-1 shrink-0">
+                                    <Clock className="w-3 h-3" />
+                                    <span>Pending</span>
+                                  </span>
+                                )}
+                              </div>
+
+                              {p.status === 'REJECTED' && (p.rejectionReason || p.rejection_reason) && (
+                                <p className="text-[10px] text-rose-400 bg-rose-500/10 p-1.5 rounded-lg border border-rose-500/20 truncate" title={p.rejectionReason || p.rejection_reason || ''}>
+                                  Note: {p.rejectionReason || p.rejection_reason}
+                                </p>
+                              )}
+
+                              <div className="flex items-center space-x-2 pt-1 border-t border-slate-800/80">
+                                <button
+                                  type="button"
+                                  onClick={() => handleApprovePhoto(p)}
+                                  disabled={photoActionLoading || p.status === 'APPROVED'}
+                                  className="flex-1 py-1.5 px-2 rounded-xl text-[11px] font-bold bg-emerald-600/15 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 disabled:opacity-30 transition flex items-center justify-center space-x-1"
+                                >
+                                  <Check className="w-3 h-3" />
+                                  <span>Approve</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenRejectPhotoModal(p)}
+                                  disabled={photoActionLoading}
+                                  className="flex-1 py-1.5 px-2 rounded-xl text-[11px] font-bold bg-rose-600/15 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/30 disabled:opacity-30 transition flex items-center justify-center space-x-1"
+                                >
+                                  <X className="w-3 h-3" />
+                                  <span>Reject</span>
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
                   {/* Documents Section */}
                   <div className="space-y-3">
@@ -696,6 +1108,101 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onRefreshStats }) =>
               >
                 {submittingAction && <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />}
                 <span>Reject & Send Feedback</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Photo Modal (Image 2 style) */}
+      {reviewingPhoto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div
+            className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center space-x-3">
+              <div className="p-2.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400">
+                <XCircle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white tracking-tight">Reject Vehicle Photo</h3>
+                <p className="text-xs text-slate-400 capitalize">
+                  Category: {reviewingPhoto.category} Photo
+                </p>
+              </div>
+            </div>
+
+            {/* Photo preview */}
+            <div className="aspect-video w-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-800">
+              <img
+                src={reviewingPhoto.signed_url || reviewingPhoto.url}
+                alt="Rejecting preview"
+                className="w-full h-full object-cover"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold text-slate-300">
+                Quick Rejection Reason:
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  'Blurry or poor lighting',
+                  'License plate not visible',
+                  'Scratch or dent observed',
+                  'Dirty interior / clutter',
+                  'Wrong photo category',
+                ].map((reason) => (
+                  <button
+                    key={reason}
+                    type="button"
+                    onClick={() => setPhotoRejectReason(reason)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition border ${
+                      photoRejectReason === reason
+                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                        : 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    {reason}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-xs font-semibold text-slate-300">
+                Rejection Note (Sent to Host):
+              </label>
+              <textarea
+                value={photoRejectReason}
+                onChange={(e) => setPhotoRejectReason(e.target.value)}
+                placeholder="Explain why this photo needs to be re-uploaded..."
+                rows={3}
+                className="w-full p-3 text-xs bg-slate-950 border border-slate-800 rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:border-rose-500 font-sans"
+              />
+            </div>
+
+            <div className="flex items-center justify-end space-x-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setReviewingPhoto(null);
+                  setPhotoRejectReason('');
+                }}
+                disabled={photoActionLoading}
+                className="px-4 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-xl transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmRejectPhoto}
+                disabled={photoActionLoading || !photoRejectReason.trim()}
+                className="px-5 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 disabled:opacity-50 rounded-xl shadow-lg shadow-rose-950/40 transition flex items-center space-x-1.5"
+              >
+                {photoActionLoading && <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />}
+                <span>Reject & Request Re-upload</span>
               </button>
             </div>
           </div>
