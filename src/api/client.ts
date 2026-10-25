@@ -188,6 +188,21 @@ export const api = {
     return request<any>(`/admin/hosts/${id}/kyc/reject`, { method: 'POST' });
   },
 
+  getCustomerKyc: async (id: string) => {
+    return request<any>(`/admin/customers/${id}/kyc`);
+  },
+
+  approveCustomerKyc: async (id: string) => {
+    return request<any>(`/admin/customers/${id}/kyc/approve`, { method: 'POST' });
+  },
+
+  rejectCustomerKyc: async (id: string, reason?: string) => {
+    return request<any>(`/admin/customers/${id}/kyc/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  },
+
   // Trips
   getTrips: async (status = '') => {
     const query = status ? `?status=${status}` : '';

@@ -150,6 +150,8 @@ export interface UserItem {
   status: 'ACTIVE' | 'SUSPENDED' | 'BLOCKED';
   first_name?: string;
   last_name?: string;
+  avatar_url?: string | null;
+  avatarUrl?: string | null;
   kyc_status?: 'PENDING' | 'VERIFIED' | 'FAILED' | 'REJECTED';
   onboarding_completed?: boolean;
   onboarding_step?: number;
@@ -161,14 +163,26 @@ export interface HostKycDetails {
   profile: {
     first_name: string;
     last_name: string;
+    email?: string | null;
     dob: string;
     city: string;
     bio: string | null;
     avatar_url: string | null;
+    avatarUrl?: string | null;
     payout_method: 'UPI' | 'BANK';
     bank_account_number: string | null;
     bank_ifsc: string | null;
     bank_account_name: string | null;
+    driving_licence_number?: string | null;
+    driving_licence_url?: string | null;
+    driving_licence_front_url?: string | null;
+    driving_licence_back_url?: string | null;
+    selfie_url?: string | null;
+    documents?: {
+      dl_front?: { title: string; status: string; url: string | null };
+      dl_back?: { title: string; status: string; url: string | null };
+      selfie?: { title: string; status: string; url: string | null };
+    };
     step: number;
     is_completed: boolean;
   } | null;

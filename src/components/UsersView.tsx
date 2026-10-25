@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Search, UserCheck, UserX, Ban, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, UserCheck, UserX, Ban, FileText, ChevronLeft, ChevronRight, X as CloseIcon } from 'lucide-react';
 import type { UserItem } from '../types';
 import { api } from '../api/client';
 import { HostKycModal } from './HostKycModal';
+import { CustomerKycModal } from './CustomerKycModal';
 import { ConfirmModal, NotificationModal, type ToastNotification } from './Modal';
 
 export const UsersView: React.FC = () => {
@@ -15,6 +16,7 @@ export const UsersView: React.FC = () => {
 
   // Modals state
   const [selectedHostKycId, setSelectedHostKycId] = useState<string | null>(null);
+  const [selectedCustomerKycId, setSelectedCustomerKycId] = useState<string | null>(null);
   const [confirmState, setConfirmState] = useState<{
     isOpen: boolean;
     title: string;
@@ -46,9 +48,13 @@ export const UsersView: React.FC = () => {
     }
   };
 
+  // Auto debounced search on typing
   useEffect(() => {
-    fetchUsers();
-  }, [roleFilter, page]);
+    const timer = setTimeout(() => {
+      fetchUsers();
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchQuery, roleFilter, page]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,8 +120,17 @@ export const UsersView: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search phone, email, name..."
-              className="pl-9 pr-3 py-1.5 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-red-500 w-56 font-mono"
+              className="pl-9 pr-8 py-1.5 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-red-500 w-64 font-mono"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-2.5 text-slate-500 hover:text-white"
+              >
+                <CloseIcon className="w-3.5 h-3.5" />
+              </button>
+            )}
           </form>
 
           <div className="flex items-center space-x-1 p-1 bg-slate-900 border border-slate-800 rounded-xl text-xs">
@@ -174,7 +189,23 @@ export const UsersView: React.FC = () => {
                       {/* Name & Phone */}
                       <td className="px-5 py-4">
                         <div className="flex items-center space-x-3">
-                          <div className="w-9 h-9 rounded-2xl bg-slate-800 text-slate-200 font-bold flex items-center justify-center border border-slate-700 shadow-sm flex-shrink-0">
+                          {(u.avatar_url || (u as any).avatarUrl) ? (
+                            <img
+                              src={(u.avatar_url || (u as any).avatarUrl)!}
+                              alt={displayName}
+                              className="w-9 h-9 rounded-2xl object-cover border border-slate-700 shadow-sm flex-shrink-0"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = 'none';
+                                const fallback = (e.target as HTMLElement).nextElementSibling;
+                                if (fallback) fallback.classList.remove('hidden');
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className={`w-9 h-9 rounded-2xl bg-slate-800 text-slate-200 font-bold flex items-center justify-center border border-slate-700 shadow-sm flex-shrink-0 ${
+                              (u.avatar_url || (u as any).avatarUrl) ? 'hidden' : ''
+                            }`}
+                          >
                             {displayName[0].toUpperCase()}
                           </div>
                           <div>
@@ -215,7 +246,7 @@ export const UsersView: React.FC = () => {
                         </span>
                       </td>
 
-                      {/* Host KYC & Inspection Button */}
+                      {/* Host & Customer KYC & Inspection Button */}
                       <td className="px-5 py-4">
                         {isHost ? (
                           <div className="flex items-center space-x-2.5">
@@ -236,6 +267,30 @@ export const UsersView: React.FC = () => {
                               className="px-2.5 py-1 text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl transition flex items-center space-x-1.5 shadow-sm"
                             >
                               <FileText className="w-3.5 h-3.5 text-purple-400" />
+                              <span>View Docs</span>
+                            </button>
+                          </div>
+                        ) : u.role === 'CUSTOMER' ? (
+                          <div className="flex items-center space-x-2.5">
+                            <span
+                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                                u.kyc_status === 'VERIFIED'
+                                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                  : u.kyc_status === 'FAILED' || u.kyc_status === 'REJECTED'
+                                  ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                                  : u.kyc_status === 'PENDING'
+                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                  : 'bg-slate-800 text-slate-400 border border-slate-700'
+                              }`}
+                            >
+                              {u.kyc_status || 'NOT_STARTED'}
+                            </span>
+
+                            <button
+                              onClick={() => setSelectedCustomerKycId(u.id)}
+                              className="px-2.5 py-1 text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl transition flex items-center space-x-1.5 shadow-sm"
+                            >
+                              <FileText className="w-3.5 h-3.5 text-blue-400" />
                               <span>View Docs</span>
                             </button>
                           </div>
@@ -317,6 +372,14 @@ export const UsersView: React.FC = () => {
       <HostKycModal
         hostId={selectedHostKycId}
         onClose={() => setSelectedHostKycId(null)}
+        onRefresh={fetchUsers}
+        onNotify={notify}
+      />
+
+      {/* Customer KYC Inspection Modal */}
+      <CustomerKycModal
+        customerId={selectedCustomerKycId}
+        onClose={() => setSelectedCustomerKycId(null)}
         onRefresh={fetchUsers}
         onNotify={notify}
       />

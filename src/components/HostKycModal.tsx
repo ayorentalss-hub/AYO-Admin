@@ -155,27 +155,34 @@ export const HostKycModal: React.FC<HostKycModalProps> = ({
                   </div>
 
                   <div className="flex items-start space-x-4">
-                    {data.profile?.avatar_url ? (
+                    {(data.profile?.avatar_url || data.profile?.avatarUrl || data.user?.avatar_url || data.user?.avatarUrl) ? (
                       <img
-                        src={data.profile.avatar_url}
+                        src={(data.profile?.avatar_url || data.profile?.avatarUrl || data.user?.avatar_url || data.user?.avatarUrl)!}
                         alt="Host Avatar"
-                        className="w-16 h-16 rounded-2xl object-cover border border-slate-700 shadow"
+                        className="w-16 h-16 rounded-2xl object-cover border border-slate-700 shadow flex-shrink-0"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = 'none';
+                          (e.target as HTMLElement).style.display = 'none';
+                          const fallback = (e.target as HTMLElement).nextElementSibling;
+                          if (fallback) fallback.classList.remove('hidden');
                         }}
                       />
-                    ) : (
-                      <div className="w-16 h-16 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 font-bold text-xl">
-                        {(data.user.name || data.profile?.first_name || 'H')[0].toUpperCase()}
-                      </div>
-                    )}
+                    ) : null}
+                    <div
+                      className={`w-16 h-16 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 font-bold text-xl flex-shrink-0 ${
+                        (data.profile?.avatar_url || data.profile?.avatarUrl || data.user?.avatar_url || data.user?.avatarUrl) ? 'hidden' : ''
+                      }`}
+                    >
+                      {(data.user.name || data.profile?.first_name || 'H')[0].toUpperCase()}
+                    </div>
 
                     <div className="space-y-1 text-xs">
                       <p className="font-bold text-white text-sm">
                         {data.user.name || `${data.profile?.first_name || ''} ${data.profile?.last_name || ''}`.trim() || 'No Name Provided'}
                       </p>
                       <p className="text-slate-400 font-mono text-[11px]">{data.user.phone}</p>
-                      {data.user.email && <p className="text-slate-400">{data.user.email}</p>}
+                      {(data.user.email || data.profile?.email) && (
+                        <p className="text-slate-400 font-mono text-[11px]">{data.user.email || data.profile?.email}</p>
+                      )}
                       <div className="flex items-center gap-3 pt-1 text-[11px] text-slate-400">
                         {data.profile?.city && (
                           <span className="flex items-center">
@@ -276,6 +283,131 @@ export const HostKycModal: React.FC<HostKycModalProps> = ({
                       No UPI verification record found for this host.
                     </div>
                   )}
+                </div>
+              </div>
+
+              {/* 2.5 Driving License & Identity Verification Documents */}
+              <div className="p-5 rounded-2xl bg-slate-950/80 border border-slate-800/80 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                  <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-2">
+                    <ShieldCheck className="w-4 h-4 text-purple-400" />
+                    <span>Driving License & Identity Verification</span>
+                  </h4>
+                  {data.profile?.driving_licence_number && (
+                    <span className="text-[11px] font-mono font-bold text-white bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800">
+                      DL: {data.profile.driving_licence_number}
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* DL Front */}
+                  <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-300">DL Front Photo</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        data.profile?.driving_licence_front_url || data.profile?.documents?.dl_front?.url
+                          ? 'bg-emerald-500/20 text-emerald-400'
+                          : 'bg-slate-800 text-slate-500'
+                      }`}>
+                        {data.profile?.driving_licence_front_url || data.profile?.documents?.dl_front?.url ? 'UPLOADED' : 'NOT UPLOADED'}
+                      </span>
+                    </div>
+
+                    {(data.profile?.driving_licence_front_url || data.profile?.documents?.dl_front?.url) ? (
+                      <div className="relative group">
+                        <img
+                          src={(data.profile?.driving_licence_front_url || data.profile?.documents?.dl_front?.url)!}
+                          alt="Driving License Front"
+                          className="w-full h-36 object-cover rounded-xl border border-slate-800"
+                        />
+                        <a
+                          href={(data.profile?.driving_licence_front_url || data.profile?.documents?.dl_front?.url)!}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold rounded-xl transition"
+                        >
+                          <ExternalLink className="w-4 h-4 mr-1" /> View Full Image
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="w-full h-36 rounded-xl border border-dashed border-slate-800 flex items-center justify-center text-slate-600 text-xs">
+                        No DL Front Uploaded
+                      </div>
+                    )}
+                  </div>
+
+                  {/* DL Back */}
+                  <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-300">DL Back Photo</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        data.profile?.driving_licence_back_url || data.profile?.documents?.dl_back?.url
+                          ? 'bg-emerald-500/20 text-emerald-400'
+                          : 'bg-slate-800 text-slate-500'
+                      }`}>
+                        {data.profile?.driving_licence_back_url || data.profile?.documents?.dl_back?.url ? 'UPLOADED' : 'NOT UPLOADED'}
+                      </span>
+                    </div>
+
+                    {(data.profile?.driving_licence_back_url || data.profile?.documents?.dl_back?.url) ? (
+                      <div className="relative group">
+                        <img
+                          src={(data.profile?.driving_licence_back_url || data.profile?.documents?.dl_back?.url)!}
+                          alt="Driving License Back"
+                          className="w-full h-36 object-cover rounded-xl border border-slate-800"
+                        />
+                        <a
+                          href={(data.profile?.driving_licence_back_url || data.profile?.documents?.dl_back?.url)!}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold rounded-xl transition"
+                        >
+                          <ExternalLink className="w-4 h-4 mr-1" /> View Full Image
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="w-full h-36 rounded-xl border border-dashed border-slate-800 flex items-center justify-center text-slate-600 text-xs">
+                        No DL Back Uploaded
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Selfie Verification */}
+                  <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-300">Live Selfie</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        data.profile?.selfie_url || data.profile?.documents?.selfie?.url
+                          ? 'bg-emerald-500/20 text-emerald-400'
+                          : 'bg-slate-800 text-slate-500'
+                      }`}>
+                        {data.profile?.selfie_url || data.profile?.documents?.selfie?.url ? 'UPLOADED' : 'NOT UPLOADED'}
+                      </span>
+                    </div>
+
+                    {(data.profile?.selfie_url || data.profile?.documents?.selfie?.url) ? (
+                      <div className="relative group">
+                        <img
+                          src={(data.profile?.selfie_url || data.profile?.documents?.selfie?.url)!}
+                          alt="Host Live Selfie"
+                          className="w-full h-36 object-cover rounded-xl border border-slate-800"
+                        />
+                        <a
+                          href={(data.profile?.selfie_url || data.profile?.documents?.selfie?.url)!}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold rounded-xl transition"
+                        >
+                          <ExternalLink className="w-4 h-4 mr-1" /> View Full Image
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="w-full h-36 rounded-xl border border-dashed border-slate-800 flex items-center justify-center text-slate-600 text-xs">
+                        No Selfie Uploaded
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
