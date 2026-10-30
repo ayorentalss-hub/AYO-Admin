@@ -1,4 +1,4 @@
-import type { AuditLogItem, HostKycDetails, LedgerSummary, PaymentItem, PayoutItem, PlatformSettings, TripItem, UserItem, VehicleDocument, VehicleItem } from '../types';
+import type { AuditLogItem, CouponItem, CouponUsageItem, CreateCouponInput, HostKycDetails, LedgerSummary, PaymentItem, PayoutItem, PlatformSettings, TripItem, UserItem, VehicleDocument, VehicleItem } from '../types';
 
 const STORAGE_KEY_TOKEN = 'ayo_admin_token';
 const STORAGE_KEY_BASE_URL = 'ayo_admin_base_url';
@@ -263,5 +263,33 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(dto),
     });
+  },
+
+  // Coupons & Promo Offers
+  getCoupons: async () => {
+    return request<CouponItem[]>('/coupons/admin');
+  },
+
+  createCoupon: async (dto: CreateCouponInput) => {
+    return request<CouponItem>('/coupons/admin', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  },
+
+  toggleCoupon: async (id: string) => {
+    return request<{ id: string; code: string; is_active: boolean; message: string }>(`/coupons/admin/${id}/toggle`, {
+      method: 'PATCH',
+    });
+  },
+
+  deleteCoupon: async (id: string) => {
+    return request<{ success: boolean; message: string }>(`/coupons/admin/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  getCouponUsages: async (id: string) => {
+    return request<CouponUsageItem[]>(`/coupons/admin/${id}/usages`);
   },
 };

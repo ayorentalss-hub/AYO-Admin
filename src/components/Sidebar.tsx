@@ -1,7 +1,7 @@
 import React from 'react';
-import { LayoutDashboard, Car, Users, Navigation, CreditCard, X, Shield, Settings, ReceiptText } from 'lucide-react';
+import { LayoutDashboard, Car, Users, Navigation, CreditCard, X, Shield, Settings, ReceiptText, Tag } from 'lucide-react';
 
-export type TabType = 'dashboard' | 'vehicles' | 'users' | 'trips' | 'payments' | 'payouts' | 'audit' | 'settings';
+export type TabType = 'dashboard' | 'vehicles' | 'users' | 'trips' | 'payments' | 'payouts' | 'coupons' | 'audit' | 'settings';
 
 interface SidebarProps {
   activeTab: TabType;
@@ -54,6 +54,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'payouts' as TabType,
       label: 'Host Payouts',
       icon: CreditCard,
+      badge: null,
+    },
+    {
+      id: 'coupons' as TabType,
+      label: 'Coupons & Promos',
+      icon: Tag,
       badge: null,
     },
     {

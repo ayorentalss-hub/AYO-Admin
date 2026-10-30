@@ -297,3 +297,45 @@ export interface PaymentItem {
   created_at: string;
 }
 
+export interface CouponItem {
+  id: string;
+  code: string;
+  title: string;
+  description: string | null;
+  discount_type: 'FLAT' | 'PERCENT';
+  discount_value: number;
+  max_discount_inr: number | null;
+  min_trip_amount_inr: number;
+  is_active: boolean;
+  usage_limit: number | null;
+  used_count: number;
+  valid_until: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateCouponInput {
+  code: string;
+  title: string;
+  description?: string;
+  discount_type?: 'FLAT' | 'PERCENT';
+  discount_value: number;
+  max_discount_inr?: number;
+  min_trip_amount_inr?: number;
+  usage_limit?: number;
+  valid_until?: string;
+  is_active?: boolean;
+}
+
+export interface CouponUsageItem {
+  usage_id: string;
+  user_id: string;
+  booking_id: string | null;
+  coupon_code: string;
+  discount_type: string;
+  discount_inr: number;
+  original_amount_inr: number;
+  discounted_amount_inr: number;
+  used_at: string;
+}
+
