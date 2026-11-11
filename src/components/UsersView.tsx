@@ -9,6 +9,7 @@ import { ConfirmModal, NotificationModal, type ToastNotification } from './Modal
 export const UsersView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<'ALL' | 'HOST' | 'CUSTOMER'>('ALL');
+  const [kycFilter, setKycFilter] = useState<'ALL' | 'PENDING' | 'VERIFIED' | 'NOT_STARTED' | 'FAILED'>('ALL');
   const [users, setUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
@@ -38,7 +39,7 @@ export const UsersView: React.FC = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const res = await api.getUsers(searchQuery, roleFilter, page, 20);
+      const res = await api.getUsers(searchQuery, roleFilter, page, 20, kycFilter);
       setUsers(res.items || []);
       setTotal(res.total || 0);
     } catch (err: any) {
@@ -54,7 +55,7 @@ export const UsersView: React.FC = () => {
       fetchUsers();
     }, 350);
     return () => clearTimeout(timer);
-  }, [searchQuery, roleFilter, page]);
+  }, [searchQuery, roleFilter, kycFilter, page]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,6 +149,31 @@ export const UsersView: React.FC = () => {
                 }`}
               >
                 {r === 'ALL' ? 'All Roles' : r === 'HOST' ? 'Hosts Only' : 'Customers'}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center space-x-1 p-1 bg-slate-900 border border-slate-800 rounded-xl text-xs">
+            {([
+              { key: 'ALL', label: 'All KYC' },
+              { key: 'PENDING', label: '⏳ Pending' },
+              { key: 'VERIFIED', label: '✅ Verified' },
+              { key: 'NOT_STARTED', label: '📋 Not Started' },
+              { key: 'FAILED', label: '❌ Rejected' },
+            ] as const).map((k) => (
+              <button
+                key={k.key}
+                onClick={() => {
+                  setKycFilter(k.key);
+                  setPage(1);
+                }}
+                className={`px-2.5 py-1 rounded-lg font-medium transition ${
+                  kycFilter === k.key
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                }`}
+              >
+                {k.label}
               </button>
             ))}
           </div>

@@ -34,7 +34,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'users' as TabType,
-      label: 'Users & Host KYC',
+      label: 'Users & KYC Approvals',
       icon: Users,
       badge: null,
     },

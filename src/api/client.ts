@@ -163,13 +163,18 @@ export const api = {
   },
 
   // Users & Hosts Moderation
-  getUsers: async (q = '', role = '', page = 1, limit = 20) => {
+  getUsers: async (q = '', role = '', page = 1, limit = 20, kycStatus = '') => {
     const params = new URLSearchParams();
     if (q) params.set('q', q);
     if (role && role !== 'ALL') params.set('role', role);
+    if (kycStatus && kycStatus !== 'ALL') params.set('kyc_status', kycStatus);
     params.set('page', String(page));
     params.set('limit', String(limit));
     return request<{ items: UserItem[]; total: number; page: number; limit: number }>(`/admin/users?${params.toString()}`);
+  },
+
+  getPendingCustomersKyc: async (page = 1, limit = 20) => {
+    return request<{ items: any[]; total: number; page: number; limit: number }>(`/admin/customers/pending-kyc?page=${page}&limit=${limit}`);
   },
 
   setUserStatus: async (id: string, action: 'activate' | 'suspend' | 'block') => {
