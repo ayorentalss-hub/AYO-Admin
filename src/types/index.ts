@@ -93,7 +93,16 @@ export interface VehicleInspectDetails {
 export interface PlatformSettings {
   listing_fee_paise: number;
   listing_fee_inr: number;
+  car_listing_fee_inr?: number;
+  car_listing_fee_paise?: number;
+  bike_listing_fee_inr?: number;
+  bike_listing_fee_paise?: number;
   listing_fee_bypass: boolean;
+  customer_kyc_bypass?: boolean;
+  car_convenience_fee_inr?: number;
+  car_convenience_fee_percent?: number;
+  bike_convenience_fee_inr?: number;
+  bike_convenience_fee_percent?: number;
   convenience_fee_inr?: number;
   convenience_fee_percent?: number;
   refundable_deposit_inr?: number;

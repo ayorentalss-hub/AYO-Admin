@@ -4,10 +4,11 @@ import React, { useState, useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '../store';
 import { fetchSettingsThunk, updateSettingsThunk } from '../store/slices/settingsSlice';
 import { api } from '../api/client';
-import { Settings, Lock, IndianRupee, Save, ShieldCheck, CheckCircle2, AlertCircle, Loader2, Shield, Gauge, Coins } from 'lucide-react';
+import { Settings, Lock, IndianRupee, Save, ShieldCheck, CheckCircle2, AlertCircle, Loader2, Shield, Gauge, Coins, Bike, Car } from 'lucide-react';
 
 export const SettingsView: React.FC = () => {
   const dispatch = useAppDispatch();
+  const settingsState = useAppSelector((state) => state.settings);
   const {
     listingFeeInr,
     listingFeeBypass,
@@ -18,17 +19,22 @@ export const SettingsView: React.FC = () => {
     unlimitedKmMultiplier,
     extraKmDefaultRateInr,
     loading,
-  } = useAppSelector((state) => state.settings);
+  } = settingsState;
 
-  // Listing Fee form state
-  const [newFee, setNewFee] = useState<string>('499');
+  // Car vs Bike Listing Fee state
+  const [carFee, setCarFee] = useState<string>('499');
+  const [bikeFee, setBikeFee] = useState<string>('199');
   const [feeBypass, setFeeBypass] = useState<boolean>(false);
+  const [kycBypass, setKycBypass] = useState<boolean>(false);
   const [feeSaving, setFeeSaving] = useState<boolean>(false);
   const [feeSuccess, setFeeSuccess] = useState<string | null>(null);
   const [feeError, setFeeError] = useState<string | null>(null);
 
-  // Customer Dynamic Trip Pricing state (Zoomcar style)
-  const [convenienceFee, setConvenienceFee] = useState<string>('791');
+  // Car vs Bike Convenience Fees & Protection state
+  const [carConvFee, setCarConvFee] = useState<string>('350');
+  const [carConvPercent, setCarConvPercent] = useState<string>('5');
+  const [bikeConvFee, setBikeConvFee] = useState<string>('99');
+  const [bikeConvPercent, setBikeConvPercent] = useState<string>('3');
   const [deposit, setDeposit] = useState<string>('1000');
   const [coverPlus, setCoverPlus] = useState<string>('1919');
   const [standardCover, setStandardCover] = useState<string>('499');
@@ -51,15 +57,35 @@ export const SettingsView: React.FC = () => {
   }, [dispatch]);
 
   useEffect(() => {
-    if (listingFeeInr !== undefined) {
-      setNewFee(String(listingFeeInr));
+    if ((settingsState as any).carListingFeeInr !== undefined) {
+      setCarFee(String((settingsState as any).carListingFeeInr));
+    } else if (listingFeeInr !== undefined) {
+      setCarFee(String(listingFeeInr));
+    }
+    if ((settingsState as any).bikeListingFeeInr !== undefined) {
+      setBikeFee(String((settingsState as any).bikeListingFeeInr));
     }
     if (listingFeeBypass !== undefined) {
       setFeeBypass(listingFeeBypass);
     }
-    if (convenienceFeeInr !== undefined) {
-      setConvenienceFee(String(convenienceFeeInr));
+    if ((settingsState as any).customerKycBypass !== undefined) {
+      setKycBypass((settingsState as any).customerKycBypass);
     }
+    if ((settingsState as any).carConvenienceFeeInr !== undefined) {
+      setCarConvFee(String((settingsState as any).carConvenienceFeeInr));
+    } else if (convenienceFeeInr !== undefined) {
+      setCarConvFee(String(convenienceFeeInr));
+    }
+    if ((settingsState as any).carConvenienceFeePercent !== undefined) {
+      setCarConvPercent(String((settingsState as any).carConvenienceFeePercent));
+    }
+    if ((settingsState as any).bikeConvenienceFeeInr !== undefined) {
+      setBikeConvFee(String((settingsState as any).bikeConvenienceFeeInr));
+    }
+    if ((settingsState as any).bikeConvenienceFeePercent !== undefined) {
+      setBikeConvPercent(String((settingsState as any).bikeConvenienceFeePercent));
+    }
+
     if (refundableDepositInr !== undefined) {
       setDeposit(String(refundableDepositInr));
     }
@@ -75,16 +101,7 @@ export const SettingsView: React.FC = () => {
     if (extraKmDefaultRateInr !== undefined) {
       setExtraKmRate(String(extraKmDefaultRateInr));
     }
-  }, [
-    listingFeeInr,
-    listingFeeBypass,
-    convenienceFeeInr,
-    refundableDepositInr,
-    coverPlusFeeInr,
-    standardCoverFeeInr,
-    unlimitedKmMultiplier,
-    extraKmDefaultRateInr,
-  ]);
+  }, [settingsState]);
 
   const handleSaveListingFee = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,9 +109,10 @@ export const SettingsView: React.FC = () => {
     setFeeSuccess(null);
     setFeeError(null);
 
-    const feeNum = parseInt(newFee, 10);
-    if (isNaN(feeNum) || feeNum < 0) {
-      setFeeError('Please enter a valid listing fee amount in INR.');
+    const carFeeNum = parseInt(carFee, 10);
+    const bikeFeeNum = parseInt(bikeFee, 10);
+    if (isNaN(carFeeNum) || carFeeNum < 0 || isNaN(bikeFeeNum) || bikeFeeNum < 0) {
+      setFeeError('Please enter valid listing fee amounts for Car and Bike.');
       setFeeSaving(false);
       return;
     }
@@ -102,11 +120,14 @@ export const SettingsView: React.FC = () => {
     try {
       await dispatch(
         updateSettingsThunk({
-          listing_fee_inr: feeNum,
+          car_listing_fee_inr: carFeeNum,
+          bike_listing_fee_inr: bikeFeeNum,
+          listing_fee_inr: carFeeNum,
           listing_fee_bypass: feeBypass,
+          customer_kyc_bypass: kycBypass,
         }),
       ).unwrap();
-      setFeeSuccess(`Listing fee updated to ₹${feeNum} successfully! Hosts will be charged this fee.`);
+      setFeeSuccess(`Listing fees updated! Car: ₹${carFeeNum}, Bike: ₹${bikeFeeNum}.`);
       setTimeout(() => setFeeSuccess(null), 5000);
     } catch (err: any) {
       setFeeError(err.message || 'Failed to update listing fee.');
@@ -121,14 +142,17 @@ export const SettingsView: React.FC = () => {
     setPricingSuccess(null);
     setPricingError(null);
 
-    const convNum = parseInt(convenienceFee, 10);
+    const carConvInr = parseInt(carConvFee, 10);
+    const carConvPct = parseFloat(carConvPercent);
+    const bikeConvInr = parseInt(bikeConvFee, 10);
+    const bikeConvPct = parseFloat(bikeConvPercent);
     const depNum = parseInt(deposit, 10);
     const cpNum = parseInt(coverPlus, 10);
     const scNum = parseInt(standardCover, 10);
     const multNum = parseFloat(unlimitedMultiplier);
     const kmNum = parseInt(extraKmRate, 10);
 
-    if (isNaN(convNum) || isNaN(depNum) || isNaN(cpNum) || isNaN(scNum) || isNaN(multNum) || isNaN(kmNum)) {
+    if (isNaN(carConvInr) || isNaN(bikeConvInr) || isNaN(depNum) || isNaN(cpNum) || isNaN(scNum) || isNaN(multNum) || isNaN(kmNum)) {
       setPricingError('Please enter valid numeric values for all pricing fields.');
       setPricingSaving(false);
       return;
@@ -137,7 +161,12 @@ export const SettingsView: React.FC = () => {
     try {
       await dispatch(
         updateSettingsThunk({
-          convenience_fee_inr: convNum,
+          car_convenience_fee_inr: carConvInr,
+          car_convenience_fee_percent: carConvPct,
+          bike_convenience_fee_inr: bikeConvInr,
+          bike_convenience_fee_percent: bikeConvPct,
+          convenience_fee_inr: carConvInr,
+          convenience_fee_percent: carConvPct,
           refundable_deposit_inr: depNum,
           cover_plus_fee_inr: cpNum,
           standard_cover_fee_inr: scNum,
@@ -145,10 +174,10 @@ export const SettingsView: React.FC = () => {
           extra_km_default_rate_inr: kmNum,
         }),
       ).unwrap();
-      setPricingSuccess('Customer trip pricing, convenience fee & deposit settings updated successfully!');
+      setPricingSuccess('Trip pricing and Car/Bike convenience fee policies saved successfully!');
       setTimeout(() => setPricingSuccess(null), 5000);
     } catch (err: any) {
-      setPricingError(err.message || 'Failed to update pricing settings.');
+      setPricingError(err.message || 'Failed to save pricing policies.');
     } finally {
       setPricingSaving(false);
     }
@@ -209,40 +238,60 @@ export const SettingsView: React.FC = () => {
               <IndianRupee className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white">Vehicle Listing Fee</h3>
-              <p className="text-[11px] text-slate-400">Set the mandatory fee charged when a host lists a car</p>
+              <h3 className="text-sm font-bold text-white">Car & Bike Listing Fees</h3>
+              <p className="text-[11px] text-slate-400">Set the mandatory listing fee charged when a host lists a vehicle</p>
             </div>
           </div>
 
           <form onSubmit={handleSaveListingFee} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Listing Fee Amount (₹ INR)
-              </label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500 font-bold text-sm">
-                  ₹
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={newFee}
-                  onChange={(e) => setNewFee(e.target.value)}
-                  className="w-full pl-8 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white text-sm font-semibold focus:outline-none focus:border-red-500 transition"
-                  placeholder="e.g. 499"
-                />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center space-x-1.5">
+                  <Car className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Car Listing (₹)</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 font-bold text-xs">
+                    ₹
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={carFee}
+                    onChange={(e) => setCarFee(e.target.value)}
+                    className="w-full pl-7 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-red-500 transition"
+                    placeholder="e.g. 499"
+                  />
+                </div>
               </div>
-              <p className="text-[11px] text-slate-500 mt-1">
-                Currently configured: <span className="font-bold text-slate-300">₹{listingFeeInr}</span> (
-                {(listingFeeInr * 100).toLocaleString('en-IN')} paise)
-              </p>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center space-x-1.5">
+                  <Bike className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Bike Listing (₹)</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500 font-bold text-xs">
+                    ₹
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={bikeFee}
+                    onChange={(e) => setBikeFee(e.target.value)}
+                    className="w-full pl-7 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-red-500 transition"
+                    placeholder="e.g. 199"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-white">Listing Fee Bypass</p>
-                <p className="text-[10px] text-slate-400">For internal testing only (skips Razorpay checkout)</p>
+                <p className="text-[10px] text-slate-400">Skip Razorpay payment on vehicle listing (Test Mode)</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
@@ -252,6 +301,22 @@ export const SettingsView: React.FC = () => {
                   className="sr-only peer"
                 />
                 <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600"></div>
+              </label>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-white">Customer KYC Bypass</p>
+                <p className="text-[10px] text-slate-400">Allow booking even before customer docs are approved</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={kycBypass}
+                  onChange={(e) => setKycBypass(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
               </label>
             </div>
 
@@ -368,26 +433,84 @@ export const SettingsView: React.FC = () => {
 
         <form onSubmit={handleSavePricingSettings} className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {/* Convenience Fee */}
+            {/* Car Convenience Fee */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-slate-300">
-                Convenience Fee (₹ INR)
+              <label className="block text-xs font-semibold text-slate-300 flex items-center space-x-1">
+                <Car className="w-3.5 h-3.5 text-amber-400" />
+                <span>Car Convenience Fee</span>
               </label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500 font-bold text-xs">
-                  ₹
-                </span>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={convenienceFee}
-                  onChange={(e) => setConvenienceFee(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-purple-500 transition"
-                  placeholder="e.g. 791"
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center text-slate-500 font-bold text-xs">
+                    ₹
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={carConvFee}
+                    onChange={(e) => setCarConvFee(e.target.value)}
+                    className="w-full pl-6 pr-2 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-purple-500 transition"
+                    placeholder="350"
+                  />
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    value={carConvPercent}
+                    onChange={(e) => setCarConvPercent(e.target.value)}
+                    className="w-full pl-3 pr-6 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-purple-500 transition"
+                    placeholder="5"
+                  />
+                  <span className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-500 font-bold text-xs">
+                    %
+                  </span>
+                </div>
               </div>
-              <p className="text-[10px] text-slate-500">Platform convenience fee charged on customer checkout</p>
+              <p className="text-[10px] text-slate-500">Charged on car checkout (Fixed ₹ or % rate)</p>
+            </div>
+
+            {/* Bike Convenience Fee */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-slate-300 flex items-center space-x-1">
+                <Bike className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Bike Convenience Fee</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center text-slate-500 font-bold text-xs">
+                    ₹
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={bikeConvFee}
+                    onChange={(e) => setBikeConvFee(e.target.value)}
+                    className="w-full pl-6 pr-2 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-purple-500 transition"
+                    placeholder="99"
+                  />
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    value={bikeConvPercent}
+                    onChange={(e) => setBikeConvPercent(e.target.value)}
+                    className="w-full pl-3 pr-6 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white text-xs font-semibold focus:outline-none focus:border-purple-500 transition"
+                    placeholder="3"
+                  />
+                  <span className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-500 font-bold text-xs">
+                    %
+                  </span>
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-500">Charged on bike checkout (Fixed ₹ or % rate)</p>
             </div>
 
             {/* Refundable Security Deposit */}
