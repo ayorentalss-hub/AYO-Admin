@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Navigation, CheckSquare, XSquare, AlertCircle } from 'lucide-react';
+import { Navigation, CheckSquare, XSquare, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { type TripItem } from '../types';
 import { api } from '../api/client';
 
@@ -7,6 +7,8 @@ export const TripsView: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [trips, setTrips] = useState<TripItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState<number>(1);
+  const pageSize = 15;
 
   // Force modal state
   const [forceTarget, setForceTarget] = useState<{ id: string; action: 'complete' | 'cancel' } | null>(null);
@@ -26,6 +28,7 @@ export const TripsView: React.FC = () => {
   };
 
   useEffect(() => {
+    setPage(1);
     fetchTrips();
   }, [statusFilter]);
 
@@ -63,6 +66,9 @@ export const TripsView: React.FC = () => {
       minute: '2-digit',
     });
   };
+
+  const totalPages = Math.ceil(trips.length / pageSize) || 1;
+  const paginatedTrips = trips.slice((page - 1) * pageSize, page * pageSize);
 
   return (
     <div className="space-y-6">
@@ -125,7 +131,7 @@ export const TripsView: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                trips.map((t) => (
+                paginatedTrips.map((t) => (
                   <tr key={t.id} className="hover:bg-slate-800/40 transition">
                     <td className="px-5 py-4">
                       <div className="flex items-center space-x-2">
@@ -213,6 +219,34 @@ export const TripsView: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Footer */}
+        {trips.length > 0 && (
+          <div className="px-5 py-3.5 bg-slate-950/70 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+            <div>
+              Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, trips.length)} of {trips.length} trips
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 transition"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="font-semibold text-white px-2">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 transition"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Force Trip Modal */}

@@ -208,7 +208,9 @@ export const UsersView: React.FC = () => {
                 </tr>
               ) : (
                 users.map((u) => {
-                  const isHost = u.role === 'HOST';
+                  const roleUpper = (u.role || '').toUpperCase();
+                  const isHost = roleUpper === 'HOST';
+                  const isCustomer = roleUpper === 'CUSTOMER' || (!isHost && roleUpper !== 'ADMIN');
                   const displayName = getUserDisplayName(u);
                   return (
                     <tr key={u.id} className="hover:bg-slate-800/40 transition">
@@ -290,13 +292,13 @@ export const UsersView: React.FC = () => {
 
                             <button
                               onClick={() => setSelectedHostKycId(u.id)}
-                              className="px-2.5 py-1 text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl transition flex items-center space-x-1.5 shadow-sm"
+                              className="px-2.5 py-1 text-[11px] font-bold bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-xl transition flex items-center space-x-1.5 shadow-sm"
                             >
                               <FileText className="w-3.5 h-3.5 text-purple-400" />
                               <span>View Docs</span>
                             </button>
                           </div>
-                        ) : u.role === 'CUSTOMER' ? (
+                        ) : isCustomer ? (
                           <div className="flex items-center space-x-2.5">
                             <span
                               className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
@@ -304,7 +306,7 @@ export const UsersView: React.FC = () => {
                                   ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                                   : u.kyc_status === 'FAILED' || u.kyc_status === 'REJECTED'
                                   ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                                  : u.kyc_status === 'PENDING'
+                                  : u.kyc_status === 'PENDING' || (u.kyc_status as string) === 'SUBMITTED' || (u.kyc_status as string) === 'UNDER_REVIEW'
                                   ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                                   : 'bg-slate-800 text-slate-400 border border-slate-700'
                               }`}
@@ -314,7 +316,7 @@ export const UsersView: React.FC = () => {
 
                             <button
                               onClick={() => setSelectedCustomerKycId(u.id)}
-                              className="px-2.5 py-1 text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl transition flex items-center space-x-1.5 shadow-sm"
+                              className="px-2.5 py-1 text-[11px] font-bold bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-xl transition flex items-center space-x-1.5 shadow-sm"
                             >
                               <FileText className="w-3.5 h-3.5 text-blue-400" />
                               <span>View Docs</span>

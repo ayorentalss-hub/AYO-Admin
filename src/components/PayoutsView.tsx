@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, CheckCircle } from 'lucide-react';
+import { CreditCard, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { type PayoutItem } from '../types';
 import { api } from '../api/client';
 
 export const PayoutsView: React.FC = () => {
   const [payouts, setPayouts] = useState<PayoutItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState<number>(1);
+  const pageSize = 15;
 
   // Mark paid modal
   const [targetPayout, setTargetPayout] = useState<PayoutItem | null>(null);
@@ -53,6 +55,9 @@ export const PayoutsView: React.FC = () => {
     return (paise / 100).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
   };
 
+  const totalPages = Math.ceil(payouts.length / pageSize) || 1;
+  const paginatedPayouts = payouts.slice((page - 1) * pageSize, page * pageSize);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -91,7 +96,7 @@ export const PayoutsView: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                payouts.map((p) => (
+                paginatedPayouts.map((p) => (
                   <tr key={p.id} className="hover:bg-slate-800/40 transition">
                     <td className="px-5 py-4">
                       <div className="flex items-center space-x-2">
@@ -152,6 +157,34 @@ export const PayoutsView: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Footer */}
+        {payouts.length > 0 && (
+          <div className="px-5 py-3.5 bg-slate-950/70 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
+            <div>
+              Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, payouts.length)} of {payouts.length} payouts
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 transition"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="font-semibold text-white px-2">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 transition"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Mark Paid Modal */}
