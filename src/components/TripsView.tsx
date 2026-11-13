@@ -92,9 +92,8 @@ export const TripsView: React.FC = () => {
             <button
               key={item.id}
               onClick={() => setStatusFilter(item.id)}
-              className={`px-3 py-1.5 rounded-lg font-medium transition ${
-                statusFilter === item.id ? 'bg-red-600 text-white font-bold shadow-md shadow-red-900/30' : 'text-slate-400 hover:text-white'
-              }`}
+              className={`px-3 py-1.5 rounded-lg font-medium transition ${statusFilter === item.id ? 'bg-red-600 text-white font-bold shadow-md shadow-red-900/30' : 'text-slate-400 hover:text-white'
+                }`}
             >
               {item.label}
             </button>
@@ -170,15 +169,14 @@ export const TripsView: React.FC = () => {
 
                     <td className="px-5 py-4">
                       <span
-                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                          t.status === 'CONFIRMED'
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${t.status === 'CONFIRMED'
                             ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
                             : t.status === 'ONGOING'
-                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse'
-                            : t.status === 'COMPLETED'
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                            : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                        }`}
+                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse'
+                              : t.status === 'COMPLETED'
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                          }`}
                       >
                         {t.status}
                       </span>

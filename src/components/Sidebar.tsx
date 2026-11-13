@@ -1,7 +1,7 @@
 import React from 'react';
-import { LayoutDashboard, Car, Users, Navigation, CreditCard, X, Shield, Settings, ReceiptText, Tag } from 'lucide-react';
+import { LayoutDashboard, Car, Users, Navigation, CreditCard, X, Shield, Settings, ReceiptText, Tag, Bell } from 'lucide-react';
 
-export type TabType = 'dashboard' | 'vehicles' | 'users' | 'trips' | 'payments' | 'payouts' | 'coupons' | 'audit' | 'settings';
+export type TabType = 'dashboard' | 'vehicles' | 'users' | 'trips' | 'payments' | 'payouts' | 'coupons' | 'notifications' | 'audit' | 'settings';
 
 interface SidebarProps {
   activeTab: TabType;
@@ -63,6 +63,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badge: null,
     },
     {
+      id: 'notifications' as TabType,
+      label: 'Push Notifications',
+      icon: Bell,
+      badge: null,
+    },
+    {
       id: 'audit' as TabType,
       label: 'Audit Trail',
       icon: Shield,
@@ -105,11 +111,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               key={item.id}
               onClick={() => handleSelect(item.id)}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition ${
-                isActive
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold transition ${isActive
                   ? 'bg-red-600 text-white shadow-md shadow-red-900/30'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-              }`}
+                }`}
             >
               <div className="flex items-center space-x-3">
                 <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
@@ -117,9 +122,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
               {item.badge !== null && (
                 <span
-                  className={`px-2 py-0.5 text-xs font-bold rounded-full ${
-                    item.badgeColor || 'bg-slate-800 text-slate-300'
-                  }`}
+                  className={`px-2 py-0.5 text-xs font-bold rounded-full ${item.badgeColor || 'bg-slate-800 text-slate-300'
+                    }`}
                 >
                   {item.badge}
                 </span>

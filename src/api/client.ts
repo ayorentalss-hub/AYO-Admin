@@ -333,4 +333,45 @@ export const api = {
   getCouponUsages: async (id: string) => {
     return request<CouponUsageItem[]>(`/coupons/admin/${id}/usages`);
   },
+
+  // Push Notifications Broadcast & Targeting
+  sendNotification: async (dto: {
+    target: 'ALL' | 'HOSTS' | 'CUSTOMERS' | 'USER';
+    user_id?: string;
+    title: string;
+    message: string;
+    image_url?: string;
+    data?: Record<string, any>;
+  }) => {
+    return request<{
+      success: boolean;
+      message: string;
+      target: string;
+      targetDescription: string;
+      notification: any;
+    }>('/admin/notifications/send', {
+      method: 'POST',
+      body: JSON.stringify(dto),
+    });
+  },
+
+  getNotificationHistory: async (page = 1, limit = 20) => {
+    return request<{
+      items: Array<{
+        id: string;
+        title: string;
+        message: string;
+        imageUrl?: string | null;
+        target: string;
+        targetDescription?: string;
+        recipientId?: string | null;
+        recipientRole?: string;
+        createdAt: string;
+      }>;
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    }>(`/admin/notifications/history?page=${page}&limit=${limit}`);
+  },
 };

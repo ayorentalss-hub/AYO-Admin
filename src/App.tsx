@@ -12,6 +12,7 @@ import { TripsView } from './components/TripsView';
 import { PayoutsView } from './components/PayoutsView';
 import { PaymentsView } from './components/PaymentsView';
 import { CouponsView } from './components/CouponsView';
+import { NotificationsView } from './components/NotificationsView';
 import { AuditLogsView } from './components/AuditLogsView';
 import { SettingsView } from './components/SettingsView';
 import { LoginPage } from './components/LoginPage';
@@ -240,6 +241,8 @@ export const AdminDashboardApp: React.FC = () => {
             {activeTab === 'payouts' && <PayoutsView />}
 
             {activeTab === 'coupons' && <CouponsView />}
+
+            {activeTab === 'notifications' && <NotificationsView />}
 
             {activeTab === 'audit' && <AuditLogsView />}
 
