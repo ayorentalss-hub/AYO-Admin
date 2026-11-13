@@ -33,6 +33,8 @@ export const HostKycModal: React.FC<HostKycModalProps> = ({
   const [data, setData] = useState<HostKycDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [showRejectInput, setShowRejectInput] = useState(false);
 
   useEffect(() => {
     if (!hostId) return;
@@ -68,10 +70,14 @@ export const HostKycModal: React.FC<HostKycModalProps> = ({
   };
 
   const handleReject = async () => {
+    if (!rejectReason.trim()) {
+      onNotify('error', 'Reason Required', 'Please enter a rejection reason before rejecting so the host knows why KYC was rejected.');
+      return;
+    }
     try {
       setActionLoading(true);
-      await api.rejectHostKyc(hostId);
-      onNotify('success', 'Host KYC Rejected', 'The host KYC status has been marked as failed/rejected.');
+      await api.rejectHostKyc(hostId, rejectReason.trim());
+      onNotify('success', 'Host KYC Rejected', `Host KYC has been marked as rejected and reason was sent to host: "${rejectReason.trim()}".`);
       onRefresh();
       onClose();
     } catch (err: any) {
@@ -277,6 +283,91 @@ export const HostKycModal: React.FC<HostKycModalProps> = ({
                           {data.kyc.verified_at ? new Date(data.kyc.verified_at).toLocaleString() : 'Not Yet Verified'}
                         </span>
                       </div>
+
+                      {/* Dedicated Legal KYC / NPCI Action Toolbar */}
+                      <div className="pt-3 border-t border-slate-800 flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-[11px] text-slate-400">NPCI KYC Status:</span>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            data.kyc.status === 'VERIFIED'
+                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                              : data.kyc.status === 'FAILED'
+                              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                              : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                          }`}>
+                            {data.kyc.status || 'PENDING'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowRejectInput(true)}
+                            disabled={actionLoading}
+                            className="px-3 py-1.5 text-xs font-bold text-rose-400 hover:text-white bg-rose-500/10 hover:bg-rose-600 border border-rose-500/20 rounded-xl transition flex items-center space-x-1"
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                            <span>Reject & Send Reason</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleApprove}
+                            disabled={actionLoading}
+                            className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-md transition flex items-center space-x-1.5"
+                          >
+                            {actionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                            <span>Approve & Verify NPCI</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Reject Reason Input Box */}
+                      {showRejectInput && (
+                        <div className="p-4 bg-slate-950 rounded-2xl border border-rose-500/40 space-y-3 mt-2 animate-in fade-in zoom-in-95">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-bold text-rose-400 flex items-center gap-1.5">
+                              <AlertTriangle className="w-4 h-4 text-rose-400" />
+                              Specify Rejection Reason (Will be sent to Host):
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => setShowRejectInput(false)}
+                              className="text-slate-500 hover:text-white text-xs"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          <input
+                            type="text"
+                            value={rejectReason}
+                            onChange={(e) => setRejectReason(e.target.value)}
+                            placeholder="e.g. NPCI name does not match Driving License, invalid UPI ID, blurry docs..."
+                            className="w-full px-3 py-2 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 font-medium"
+                            autoFocus
+                          />
+                          <p className="text-[10px] text-slate-500">
+                            * Ye message Host ko app push notification me seedha milega taaki wo sahi details dubara submit karein.
+                          </p>
+                          <div className="flex justify-end space-x-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => setShowRejectInput(false)}
+                              className="px-3 py-1.5 text-xs text-slate-400 hover:text-white"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleReject}
+                              disabled={actionLoading || !rejectReason.trim()}
+                              className="px-4 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 rounded-xl transition flex items-center space-x-1 disabled:opacity-50"
+                            >
+                              {actionLoading && <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />}
+                              <span>Confirm Rejection & Notify Host</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="p-6 text-center border border-dashed border-slate-800 rounded-2xl text-slate-500 text-xs">
@@ -534,43 +625,32 @@ export const HostKycModal: React.FC<HostKycModalProps> = ({
           </button>
 
           <div className="flex items-center space-x-3">
-            {data && (data.kyc?.status === 'VERIFIED' || data.user?.kyc_status === 'VERIFIED') ? (
-              <>
-                <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Host KYC is Verified</span>
-                </div>
-
-                <button
-                  onClick={handleReject}
-                  disabled={actionLoading}
-                  className="px-4 py-2 text-xs font-bold text-rose-400 hover:text-white bg-rose-500/10 hover:bg-rose-600 border border-rose-500/20 rounded-xl transition flex items-center space-x-1.5"
-                >
-                  <XCircle className="w-3.5 h-3.5" />
-                  <span>Revoke / Reject KYC</span>
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={handleReject}
-                  disabled={actionLoading}
-                  className="px-4 py-2 text-xs font-bold text-rose-400 hover:text-white bg-rose-500/10 hover:bg-rose-600 border border-rose-500/20 rounded-xl transition flex items-center space-x-1.5"
-                >
-                  <XCircle className="w-3.5 h-3.5" />
-                  <span>Reject KYC</span>
-                </button>
-
-                <button
-                  onClick={handleApprove}
-                  disabled={actionLoading}
-                  className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-lg shadow-emerald-950/40 transition flex items-center space-x-1.5"
-                >
-                  {actionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <CheckCircle className="w-3.5 h-3.5" />}
-                  <span>{data?.kyc?.status === 'FAILED' ? 'Re-Approve & Verify KYC' : 'Approve & Verify KYC'}</span>
-                </button>
-              </>
+            {data && (data.kyc?.status === 'VERIFIED' || data.user?.kyc_status === 'VERIFIED') && (
+              <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
+                <CheckCircle className="w-4 h-4" />
+                <span>Status: Verified</span>
+              </div>
             )}
+
+            <button
+              type="button"
+              onClick={() => setShowRejectInput(true)}
+              disabled={actionLoading}
+              className="px-4 py-2 text-xs font-bold text-rose-400 hover:text-white bg-rose-500/10 hover:bg-rose-600 border border-rose-500/20 rounded-xl transition flex items-center space-x-1.5"
+            >
+              <XCircle className="w-3.5 h-3.5" />
+              <span>Reject / Revoke KYC</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleApprove}
+              disabled={actionLoading}
+              className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-lg shadow-emerald-950/40 transition flex items-center space-x-1.5"
+            >
+              {actionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <CheckCircle className="w-3.5 h-3.5" />}
+              <span>{data?.kyc?.status === 'VERIFIED' ? 'Re-Approve & Verify KYC' : 'Approve & Verify KYC'}</span>
+            </button>
           </div>
         </div>
       </div>

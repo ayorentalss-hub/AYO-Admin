@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, UserCheck, UserX, Ban, FileText, ChevronLeft, ChevronRight, X as CloseIcon } from 'lucide-react';
+import { Search, UserCheck, UserX, Ban, FileText, ChevronLeft, ChevronRight, CheckCircle2, XCircle, X as CloseIcon } from 'lucide-react';
 import type { UserItem } from '../types';
 import { api } from '../api/client';
 import { HostKycModal } from './HostKycModal';
@@ -87,6 +87,62 @@ export const UsersView: React.FC = () => {
           fetchUsers();
         } catch (err: any) {
           notify('error', 'Status Change Failed', err.message);
+        } finally {
+          setConfirmLoading(false);
+        }
+      },
+    });
+  };
+
+  const handleQuickApproveKyc = (user: UserItem) => {
+    const isHost = user.role === 'HOST';
+    setConfirmState({
+      isOpen: true,
+      title: `Approve ${isHost ? 'Host' : 'Customer'} KYC`,
+      message: `Are you sure you want to approve KYC for ${user.name || user.phone}? This will verify their identity and grant full platform access.`,
+      confirmText: 'Approve KYC',
+      variant: 'success',
+      action: async () => {
+        try {
+          setConfirmLoading(true);
+          if (isHost) {
+            await api.approveHostKyc(user.id);
+          } else {
+            await api.approveCustomerKyc(user.id);
+          }
+          setConfirmState((prev) => ({ ...prev, isOpen: false }));
+          notify('success', 'KYC Approved', `${isHost ? 'Host' : 'Customer'} ${user.name || user.phone} KYC has been verified successfully.`);
+          fetchUsers();
+        } catch (err: any) {
+          notify('error', 'KYC Approval Failed', err.message);
+        } finally {
+          setConfirmLoading(false);
+        }
+      },
+    });
+  };
+
+  const handleQuickRejectKyc = (user: UserItem) => {
+    const isHost = user.role === 'HOST';
+    setConfirmState({
+      isOpen: true,
+      title: `Reject ${isHost ? 'Host' : 'Customer'} KYC`,
+      message: `Are you sure you want to reject KYC for ${user.name || user.phone}?`,
+      confirmText: 'Reject KYC',
+      variant: 'danger',
+      action: async () => {
+        try {
+          setConfirmLoading(true);
+          if (isHost) {
+            await api.rejectHostKyc(user.id);
+          } else {
+            await api.rejectCustomerKyc(user.id, 'Documents rejected by administrator');
+          }
+          setConfirmState((prev) => ({ ...prev, isOpen: false }));
+          notify('success', 'KYC Rejected', `${isHost ? 'Host' : 'Customer'} ${user.name || user.phone} KYC has been rejected.`);
+          fetchUsers();
+        } catch (err: any) {
+          notify('error', 'KYC Rejection Failed', err.message);
         } finally {
           setConfirmLoading(false);
         }
@@ -277,7 +333,7 @@ export const UsersView: React.FC = () => {
                       {/* Host & Customer KYC & Inspection Button */}
                       <td className="px-5 py-4">
                         {isHost ? (
-                          <div className="flex items-center space-x-2.5">
+                          <div className="flex items-center space-x-2">
                             <span
                               className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
                                 u.kyc_status === 'VERIFIED'
@@ -293,13 +349,35 @@ export const UsersView: React.FC = () => {
                             <button
                               onClick={() => setSelectedHostKycId(u.id)}
                               className="px-2.5 py-1 text-[11px] font-bold bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-xl transition flex items-center space-x-1.5 shadow-sm"
+                              title="Inspect Full KYC & Bank Details"
                             >
                               <FileText className="w-3.5 h-3.5 text-purple-400" />
                               <span>View Docs</span>
                             </button>
+
+                            {u.kyc_status !== 'VERIFIED' && (
+                              <button
+                                onClick={() => handleQuickApproveKyc(u)}
+                                className="px-2.5 py-1 text-[11px] font-bold bg-emerald-500/10 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 rounded-xl transition flex items-center space-x-1 shadow-sm"
+                                title="Direct Approve Host KYC"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 group-hover:text-white" />
+                                <span>Approve</span>
+                              </button>
+                            )}
+
+                            {u.kyc_status !== 'FAILED' && u.kyc_status !== 'REJECTED' && (u.kyc_status as string) !== 'NOT_STARTED' && (
+                              <button
+                                onClick={() => handleQuickRejectKyc(u)}
+                                className="px-2 py-1 text-[11px] font-bold bg-rose-500/10 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/20 rounded-xl transition flex items-center space-x-1"
+                                title="Reject Host KYC"
+                              >
+                                <XCircle className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         ) : isCustomer ? (
-                          <div className="flex items-center space-x-2.5">
+                          <div className="flex items-center space-x-2">
                             <span
                               className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
                                 u.kyc_status === 'VERIFIED'
@@ -317,10 +395,32 @@ export const UsersView: React.FC = () => {
                             <button
                               onClick={() => setSelectedCustomerKycId(u.id)}
                               className="px-2.5 py-1 text-[11px] font-bold bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-xl transition flex items-center space-x-1.5 shadow-sm"
+                              title="Inspect Driving License & Selfie"
                             >
                               <FileText className="w-3.5 h-3.5 text-blue-400" />
                               <span>View Docs</span>
                             </button>
+
+                            {u.kyc_status !== 'VERIFIED' && (
+                              <button
+                                onClick={() => handleQuickApproveKyc(u)}
+                                className="px-2.5 py-1 text-[11px] font-bold bg-emerald-500/10 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/30 rounded-xl transition flex items-center space-x-1 shadow-sm"
+                                title="Direct Approve Customer DL"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 group-hover:text-white" />
+                                <span>Approve</span>
+                              </button>
+                            )}
+
+                            {u.kyc_status !== 'FAILED' && u.kyc_status !== 'REJECTED' && (u.kyc_status as string) !== 'NOT_STARTED' && (
+                              <button
+                                onClick={() => handleQuickRejectKyc(u)}
+                                className="px-2 py-1 text-[11px] font-bold bg-rose-500/10 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/20 rounded-xl transition flex items-center space-x-1"
+                                title="Reject Customer DL"
+                              >
+                                <XCircle className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         ) : (
                           <span className="text-slate-600 text-[11px]">Not Applicable</span>

@@ -189,8 +189,11 @@ export const api = {
     return request<any>(`/admin/hosts/${id}/kyc/approve`, { method: 'POST' });
   },
 
-  rejectHostKyc: async (id: string) => {
-    return request<any>(`/admin/hosts/${id}/kyc/reject`, { method: 'POST' });
+  rejectHostKyc: async (id: string, reason?: string) => {
+    return request<any>(`/admin/hosts/${id}/kyc/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
   },
 
   getCustomerKyc: async (id: string) => {
@@ -224,6 +227,13 @@ export const api = {
   // Payouts
   getPayouts: async () => {
     return request<PayoutItem[]>('/admin/payouts');
+  },
+
+  createPayout: async (hostId: string, bookingId: string) => {
+    return request<any>(`/admin/payouts/${hostId}`, {
+      method: 'POST',
+      body: JSON.stringify({ booking_id: bookingId }),
+    });
   },
 
   markPayoutPaid: async (id: string, reference: string) => {
