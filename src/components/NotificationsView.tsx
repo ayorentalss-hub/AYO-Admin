@@ -10,12 +10,12 @@ import {
   AlertCircle,
   RefreshCw,
   Search,
-  ExternalLink,
   ChevronLeft,
   ChevronRight,
   Sparkles,
   Smartphone,
-  Eye,
+  Upload,
+  X,
   History,
 } from 'lucide-react';
 import { api } from '../api/client';
@@ -35,23 +35,16 @@ interface HistoryItem {
   createdAt: string;
 }
 
-const PRESET_ROUTES = [
-  { label: 'Default Home Screen', value: 'FLUTTER_NOTIFICATION_CLICK' },
-  { label: 'Offers & Coupons (/coupons)', value: 'APP_ROUTE_COUPONS' },
-  { label: 'My Bookings / Trips (/trips)', value: 'APP_ROUTE_TRIPS' },
-  { label: 'Host Fleet & Vehicles (/vehicles)', value: 'APP_ROUTE_VEHICLES' },
-  { label: 'KYC Verification Page (/kyc)', value: 'APP_ROUTE_KYC' },
-  { label: 'Wallet & Payouts (/payouts)', value: 'APP_ROUTE_PAYOUTS' },
-];
-
 export const NotificationsView: React.FC = () => {
   // Form State
   const [target, setTarget] = useState<TargetAudience>('ALL');
   const [title, setTitle] = useState<string>('');
   const [message, setMessage] = useState<string>('');
+
+  // Image Upload State
   const [imageUrl, setImageUrl] = useState<string>('');
-  const [selectedRoute, setSelectedRoute] = useState<string>('FLUTTER_NOTIFICATION_CLICK');
-  const [customRoute, setCustomRoute] = useState<string>('');
+  const [imageFileName, setImageFileName] = useState<string>('');
+  const [imageUploading, setImageUploading] = useState<boolean>(false);
 
   // Specific User Search & Selection
   const [userSearchQuery, setUserSearchQuery] = useState<string>('');
@@ -116,6 +109,49 @@ export const NotificationsView: React.FC = () => {
     fetchHistory(page);
   }, [page]);
 
+  // Image Upload File Handler
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setStatusFeedback({ type: 'error', text: 'Please select a valid image file (PNG, JPG, WEBP).' });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setStatusFeedback({ type: 'error', text: 'Image file size must be less than 5 MB.' });
+      return;
+    }
+
+    setImageFileName(file.name);
+    setImageUploading(true);
+    setStatusFeedback(null);
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result as string;
+      setImageUrl(base64); // Show instant preview
+
+      try {
+        const res = await api.uploadNotificationBanner(base64, file.type, file.name);
+        if (res.url) {
+          setImageUrl(res.url);
+        }
+      } catch (err: any) {
+        console.warn('Direct upload notice:', err?.message);
+        // Base64 remains active
+      } finally {
+        setImageUploading(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleClearImage = () => {
+    setImageUrl('');
+    setImageFileName('');
+  };
+
   // Handle Form Submit
   const handleInitiateSend = (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,8 +178,6 @@ export const NotificationsView: React.FC = () => {
     setSending(true);
     setStatusFeedback(null);
 
-    const clickAction = selectedRoute === 'CUSTOM' ? customRoute : selectedRoute;
-
     try {
       const res = await api.sendNotification({
         target,
@@ -152,20 +186,19 @@ export const NotificationsView: React.FC = () => {
         message: message.trim(),
         image_url: imageUrl.trim() || undefined,
         data: {
-          click_action: clickAction,
-          route: clickAction,
+          click_action: 'FLUTTER_NOTIFICATION_CLICK',
         },
       });
 
       setStatusFeedback({
         type: 'success',
-        text: res.message || 'Push notification sent successfully!',
+        text: res.message || 'Push notification dispatched successfully!',
       });
 
       // Clear form on success
       setTitle('');
       setMessage('');
-      setImageUrl('');
+      handleClearImage();
       setSelectedUser(null);
       setUserSearchQuery('');
 
@@ -186,9 +219,10 @@ export const NotificationsView: React.FC = () => {
     setTitle(item.title);
     setMessage(item.message);
     setImageUrl(item.imageUrl || '');
+    setImageFileName(item.imageUrl ? 'Reused Banner' : '');
     setStatusFeedback({
       type: 'success',
-      text: `Loaded template: "${item.title}". You can modify and send it.`,
+      text: `Loaded template: "${item.title}". You can modify and dispatch it.`,
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -214,7 +248,7 @@ export const NotificationsView: React.FC = () => {
             Push Notification Dispatcher
           </h2>
           <p className="text-xs text-zinc-400 mt-1">
-            Broadcast high-priority push notifications with banners and custom deep links to all users, specific roles, or individual accounts.
+            Dispatch instant high-priority push notifications with images to all users, specific roles, or individual accounts.
           </p>
         </div>
         <button
@@ -317,7 +351,9 @@ export const NotificationsView: React.FC = () => {
                       </div>
                       <div>
                         <p className="text-xs font-bold text-white">{selectedUser.name || 'Unnamed User'}</p>
-                        <p className="text-[11px] text-zinc-400">{selectedUser.phone} • {selectedUser.email || 'No email'}</p>
+                        <p className="text-[11px] text-zinc-400">
+                          {selectedUser.phone} • {selectedUser.email || 'No email'}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -362,7 +398,9 @@ export const NotificationsView: React.FC = () => {
                           >
                             <div>
                               <p className="text-white font-semibold">{u.name || 'Unnamed'}</p>
-                              <p className="text-zinc-400 text-[11px]">{u.phone} • {u.email || 'No email'}</p>
+                              <p className="text-zinc-400 text-[11px]">
+                                {u.phone} • {u.email || 'No email'}
+                              </p>
                             </div>
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-zinc-800 text-zinc-300">
                               {u.role}
@@ -388,7 +426,7 @@ export const NotificationsView: React.FC = () => {
                 type="text"
                 required
                 maxLength={60}
-                placeholder="e.g. 🪔 Diwali Special 20% OFF or 🚗 Host Paper Reminder"
+                placeholder="e.g. 🪔 Diwali Special 20% OFF or 🚗 Host Verification Update"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-red-500 font-medium"
@@ -414,59 +452,65 @@ export const NotificationsView: React.FC = () => {
               />
             </div>
 
-            {/* 4. Banner Image URL (Optional) */}
+            {/* 4. Banner Image Upload */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <ImageIcon className="w-3.5 h-3.5 text-zinc-400" />
-                  4. Image / Banner URL (Optional)
+                  <Upload className="w-3.5 h-3.5 text-zinc-400" />
+                  4. Upload Banner Image (Optional)
                 </label>
                 {imageUrl && (
                   <button
                     type="button"
-                    onClick={() => setImageUrl('')}
+                    onClick={handleClearImage}
                     className="text-[10px] text-red-400 hover:underline"
                   >
-                    Clear Image
+                    Remove Image
                   </button>
                 )}
               </div>
-              <input
-                type="url"
-                placeholder="https://images.unsplash.com/... or CDN banner link"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-red-500 font-mono"
-              />
-            </div>
 
-            {/* 5. Deep Link / Action Route */}
-            <div>
-              <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                <ExternalLink className="w-3.5 h-3.5 text-zinc-400" />
-                5. On Click Action (Screen to Open)
-              </label>
-              <select
-                value={selectedRoute}
-                onChange={(e) => setSelectedRoute(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-red-500"
-              >
-                {PRESET_ROUTES.map((r) => (
-                  <option key={r.value} value={r.value}>
-                    {r.label}
-                  </option>
-                ))}
-                <option value="CUSTOM">Custom Screen / Route...</option>
-              </select>
-
-              {selectedRoute === 'CUSTOM' && (
-                <input
-                  type="text"
-                  placeholder="e.g. /promotions/weekend-deal"
-                  value={customRoute}
-                  onChange={(e) => setCustomRoute(e.target.value)}
-                  className="mt-2 w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-red-500 font-mono"
-                />
+              {imageUrl ? (
+                <div className="relative rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-950 p-2.5 flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <img
+                      src={imageUrl}
+                      alt="Banner Preview"
+                      className="w-16 h-12 object-cover rounded-xl border border-zinc-800 bg-zinc-900"
+                    />
+                    <div>
+                      <p className="text-xs font-semibold text-white truncate max-w-xs">
+                        {imageFileName || 'Banner Image Attached'}
+                      </p>
+                      <p className="text-[10px] text-emerald-400 font-medium">
+                        {imageUploading ? 'Uploading banner...' : '✓ Image Ready for Push Notification'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleClearImage}
+                    className="p-1.5 text-zinc-500 hover:text-red-400 rounded-lg hover:bg-zinc-900 transition"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <label className="border-2 border-dashed border-zinc-800 hover:border-zinc-600 rounded-2xl p-5 flex flex-col items-center justify-center cursor-pointer bg-zinc-950/40 hover:bg-zinc-900/40 transition group">
+                  <Upload className="w-6 h-6 text-zinc-500 group-hover:text-red-400 mb-1.5 transition" />
+                  <p className="text-xs font-semibold text-zinc-300 group-hover:text-white">
+                    Click to select an image from your computer / phone
+                  </p>
+                  <p className="text-[10px] text-zinc-500 mt-0.5">
+                    PNG, JPG, WEBP (Max 5MB) • Banner will appear directly in customer notification tray
+                  </p>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageFileChange}
+                    className="hidden"
+                  />
+                </label>
               )}
             </div>
 
@@ -477,13 +521,13 @@ export const NotificationsView: React.FC = () => {
               </p>
               <button
                 type="submit"
-                disabled={sending || (target === 'USER' && !selectedUser)}
+                disabled={sending || imageUploading || (target === 'USER' && !selectedUser)}
                 className="px-6 py-2.5 rounded-xl font-bold text-xs bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-900/30 transition flex items-center space-x-2 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {sending ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Dispatching...</span>
+                    <span>Dispatching Push...</span>
                   </>
                 ) : (
                   <>
@@ -558,14 +602,6 @@ export const NotificationsView: React.FC = () => {
                       />
                     </div>
                   )}
-
-                  {/* Mock Action Pill */}
-                  <div className="pt-1.5 border-t border-zinc-800/60 flex items-center justify-between text-[10px]">
-                    <span className="text-zinc-500">Tap to open:</span>
-                    <span className="text-red-400 font-medium font-mono truncate max-w-[160px]">
-                      {selectedRoute === 'CUSTOM' ? customRoute || '/custom' : selectedRoute}
-                    </span>
-                  </div>
                 </div>
 
                 <p className="text-center text-[10px] text-zinc-600">
@@ -578,12 +614,12 @@ export const NotificationsView: React.FC = () => {
             <div className="mt-4 p-3 rounded-2xl bg-zinc-950/40 border border-zinc-800/60 text-[11px] text-zinc-400 space-y-1">
               <p className="font-semibold text-zinc-300 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                Notification Best Practices:
+                Notification Tips:
               </p>
               <ul className="list-disc list-inside space-y-0.5 text-zinc-400 text-[10px]">
-                <li>Use emojis in titles to boost user open rates (CTR).</li>
-                <li>Keep titles under 50 characters for clean 1-line display.</li>
-                <li>Images should have 16:9 aspect ratio (e.g. 1200×675 px).</li>
+                <li>Use emojis in titles to boost user open rates.</li>
+                <li>Uploaded banners are delivered directly to the Android/iOS notification tray.</li>
+                <li>App band / killed hone par bhi user ko popup dikhayi dega.</li>
               </ul>
             </div>
           </div>
@@ -668,7 +704,7 @@ export const NotificationsView: React.FC = () => {
                           className="inline-flex items-center gap-1 text-[11px] text-red-400 hover:underline"
                         >
                           <ImageIcon className="w-3.5 h-3.5" />
-                          <span>View Image</span>
+                          <span>View Banner</span>
                         </a>
                       ) : (
                         <span className="text-zinc-600 text-[11px]">No Banner</span>

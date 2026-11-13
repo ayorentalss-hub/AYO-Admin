@@ -269,12 +269,133 @@ export const HostKycModal: React.FC<HostKycModalProps> = ({
                   <div className="flex items-center justify-between pb-3 border-b border-slate-800">
                     <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center space-x-2">
                       <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                      <span>Legal KYC & NPCI Verification</span>
+                      <span>Legal KYC & NPCI / Bank Verification</span>
                     </h4>
                     <span className="text-[10px] text-slate-500">DPDP Act Compliant</span>
                   </div>
 
-                  {data.kyc ? (
+                  {data.profile?.payout_method === 'BANK' || data.profile?.bank_account_number ? (
+                    <div className="space-y-3.5 text-xs">
+                      {/* Bank Details Verification Card */}
+                      <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-400 text-[11px]">Account Holder Name:</span>
+                          <span className="font-bold text-white font-mono">
+                            {data.profile.bank_account_name || data.user.name || 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-400 text-[11px]">Bank Account Number:</span>
+                          <span className="font-bold text-emerald-400 font-mono">
+                            {data.profile.bank_account_number || 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-400 text-[11px]">Bank IFSC Code:</span>
+                          <span className="font-bold text-white font-mono">
+                            {data.profile.bank_ifsc || 'N/A'}
+                          </span>
+                        </div>
+                        <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
+                          <span className="text-slate-400">Payout Destination:</span>
+                          <span className="text-blue-400 font-semibold">Direct Bank IMPS / NEFT</span>
+                        </div>
+                      </div>
+
+                      {/* Verified At */}
+                      <div className="flex items-center justify-between text-[11px] text-slate-400 px-1">
+                        <span>Verification Timestamp:</span>
+                        <span className="text-slate-300 font-mono">
+                          {data.kyc?.verified_at ? new Date(data.kyc.verified_at).toLocaleString() : 'Pending Verification'}
+                        </span>
+                      </div>
+
+                      {/* Dedicated Bank KYC Action Toolbar */}
+                      <div className="pt-3 border-t border-slate-800 flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-[11px] text-slate-400">Bank KYC Status:</span>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            data.kyc?.status === 'VERIFIED'
+                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                              : data.kyc?.status === 'FAILED'
+                              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                              : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                          }`}>
+                            {data.kyc?.status || 'PENDING'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowRejectInput(true)}
+                            disabled={actionLoading}
+                            className="px-3 py-1.5 text-xs font-bold text-rose-400 hover:text-white bg-rose-500/10 hover:bg-rose-600 border border-rose-500/20 rounded-xl transition flex items-center space-x-1"
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                            <span>Reject & Send Reason</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleApproveNpci}
+                            disabled={actionLoading}
+                            className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-md transition flex items-center space-x-1.5"
+                          >
+                            {actionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                            <span>Approve Bank Details</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Reject Reason Input Box */}
+                      {showRejectInput && (
+                        <div className="p-4 bg-slate-950 rounded-2xl border border-rose-500/40 space-y-3 mt-2 animate-in fade-in zoom-in-95">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-bold text-rose-400 flex items-center gap-1.5">
+                              <AlertTriangle className="w-4 h-4 text-rose-400" />
+                              Specify Rejection Reason (Will be sent to Host):
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => setShowRejectInput(false)}
+                              className="text-slate-500 hover:text-white text-xs"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                          <input
+                            type="text"
+                            value={rejectReason}
+                            onChange={(e) => setRejectReason(e.target.value)}
+                            placeholder="e.g. Account number does not match IFSC, invalid bank details..."
+                            className="w-full px-3 py-2 text-xs bg-slate-900 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 font-medium"
+                            autoFocus
+                          />
+                          <p className="text-[10px] text-slate-500">
+                            * Ye message Host ko app push notification me seedha milega taaki wo sahi details dubara submit karein.
+                          </p>
+                          <div className="flex justify-end space-x-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => setShowRejectInput(false)}
+                              className="px-3 py-1.5 text-xs text-slate-400 hover:text-white"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleRejectNpci}
+                              disabled={actionLoading || !rejectReason.trim()}
+                              className="px-4 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 rounded-xl transition flex items-center space-x-1 disabled:opacity-50"
+                            >
+                              {actionLoading && <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />}
+                              <span>Confirm Rejection & Notify Host</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : data.kyc ? (
                     <div className="space-y-3.5 text-xs">
                       {/* Name Matching Check Card */}
                       <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
@@ -407,7 +528,7 @@ export const HostKycModal: React.FC<HostKycModalProps> = ({
                     </div>
                   ) : (
                     <div className="p-6 text-center border border-dashed border-slate-800 rounded-2xl text-slate-500 text-xs">
-                      No UPI verification record found for this host.
+                      No UPI or Bank verification record found for this host.
                     </div>
                   )}
                 </div>

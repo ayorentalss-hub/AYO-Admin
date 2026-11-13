@@ -1,5 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, CheckCircle, ChevronLeft, ChevronRight, Plus, IndianRupee, Clock, AlertCircle } from 'lucide-react';
+import {
+  CreditCard,
+  CheckCircle,
+  ChevronLeft,
+  ChevronRight,
+  IndianRupee,
+  Clock,
+  AlertCircle,
+  RefreshCw,
+  Search,
+  Check,
+  ShieldCheck,
+  Building,
+  Smartphone,
+  ExternalLink,
+} from 'lucide-react';
 import { type PayoutItem } from '../types';
 import { api } from '../api/client';
 
@@ -16,6 +31,9 @@ interface CompletedTrip {
   platform_fee_paise?: number;
   split_type?: string;
   completed_at?: string;
+  created_at?: string;
+  start_date?: string;
+  end_date?: string;
   customer_name?: string;
   customer_phone?: string;
   customer?: { name?: string; phone?: string };
@@ -39,43 +57,45 @@ interface CompletedTrip {
 }
 
 export const PayoutsView: React.FC = () => {
-  const [payouts, setPayouts] = useState<PayoutItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState<number>(1);
-  const pageSize = 20;
+  const [activeTab, setActiveTab] = useState<'PENDING_TRIPS' | 'LEDGER'>('PENDING_TRIPS');
 
-  // Create payout modal
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  // Completed trips awaiting payout
   const [completedTrips, setCompletedTrips] = useState<CompletedTrip[]>([]);
   const [tripsLoading, setTripsLoading] = useState(false);
-  const [selectedTrip, setSelectedTrip] = useState<CompletedTrip | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [tripsSearch, setTripsSearch] = useState('');
+  const [tripsPage, setTripsPage] = useState(1);
 
-  // Mark paid modal
+  // Payouts Ledger
+  const [payouts, setPayouts] = useState<PayoutItem[]>([]);
+  const [payoutsLoading, setPayoutsLoading] = useState(false);
+  const [ledgerPage, setLedgerPage] = useState(1);
+  const pageSize = 20;
+
+  // Pay Host Confirmation & Settlement Modal
+  const [payTargetTrip, setPayTargetTrip] = useState<CompletedTrip | null>(null);
+  const [payoutReference, setPayoutReference] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // Mark Paid for existing payout item
   const [targetPayout, setTargetPayout] = useState<PayoutItem | null>(null);
-  const [reference, setReference] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [markPaidRef, setMarkPaidRef] = useState('');
 
   const fetchPayouts = async () => {
     try {
-      setLoading(true);
+      setPayoutsLoading(true);
       const res = await api.getPayouts();
       setPayouts(res || []);
     } catch (err: any) {
       console.error('Failed to fetch payouts:', err);
     } finally {
-      setLoading(false);
+      setPayoutsLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchPayouts();
-  }, []);
 
   const fetchCompletedTrips = async () => {
     try {
       setTripsLoading(true);
-      const res = await api.getTrips('COMPLETED') as any;
+      const res = (await api.getTrips('COMPLETED')) as any;
       const items = res?.items || res?.data || (Array.isArray(res) ? res : []);
       setCompletedTrips(items);
     } catch (err: any) {
@@ -85,434 +105,657 @@ export const PayoutsView: React.FC = () => {
     }
   };
 
-  const handleOpenCreateModal = () => {
-    setShowCreateModal(true);
-    setSelectedTrip(null);
+  const refreshAll = () => {
     fetchCompletedTrips();
+    fetchPayouts();
   };
 
-  const handleCreatePayout = async () => {
-    if (!selectedTrip) return;
-    const hostId = selectedTrip.host?.id || selectedTrip.host_id;
-    if (!hostId) {
-      alert('Host ID not found for this trip');
-      return;
-    }
-    try {
-      setCreating(true);
-      await api.createPayout(hostId, selectedTrip.id);
-      alert('Payout created successfully! Now mark it as PAID after transferring money.');
-      setShowCreateModal(false);
-      setSelectedTrip(null);
-      fetchPayouts();
-    } catch (err: any) {
-      const msg = err?.message || 'Failed to create payout';
-      alert(`Error: ${msg}`);
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const handleMarkPaid = async () => {
-    if (!targetPayout) return;
-    if (!reference.trim()) {
-      alert('Please provide a banking reference / UTR number.');
-      return;
-    }
-    try {
-      setSubmitting(true);
-      await api.markPayoutPaid(targetPayout.id, reference.trim());
-      alert('Payout marked as PAID successfully! Host will be notified.');
-      setTargetPayout(null);
-      setReference('');
-      fetchPayouts();
-    } catch (err: any) {
-      alert(`Mark paid failed: ${err.message}`);
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  useEffect(() => {
+    refreshAll();
+  }, []);
 
   const formatPrice = (paise?: number) => {
     if (!paise) return '₹0';
-    return (paise / 100).toLocaleString('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+    return (paise / 100).toLocaleString('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0,
+    });
   };
 
   const hostShare = (trip: CompletedTrip) => {
     if (!trip.rent_paise || !trip.platform_fee_paise) return 0;
-    return trip.rent_paise - trip.platform_fee_paise;
+    return Math.max(0, trip.rent_paise - trip.platform_fee_paise);
   };
 
-  const totalPages = Math.ceil(payouts.length / pageSize) || 1;
-  const paginatedPayouts = payouts.slice((page - 1) * pageSize, page * pageSize);
-
-  // Already paid booking IDs
-  const alreadyPaidBookingIds = new Set(payouts.map((p) => p.booking_id).filter(Boolean));
-
-  // Only FULL split trips eligible for online payout
-  const eligibleTrips = completedTrips.filter(
-    (t) => t.split_type === 'FULL' && !alreadyPaidBookingIds.has(t.id)
+  // Already processed booking IDs
+  const alreadyProcessedBookingIds = new Set(
+    payouts.map((p) => p.booking_id).filter(Boolean)
   );
+
+  // Eligible completed trips (FULL payment split & not yet paid)
+  const eligibleTrips = completedTrips.filter(
+    (t) => t.split_type === 'FULL' && !alreadyProcessedBookingIds.has(t.id)
+  );
+
+  const filteredTrips = eligibleTrips.filter((t) => {
+    if (!tripsSearch.trim()) return true;
+    const q = tripsSearch.toLowerCase().trim();
+    const vName = (t.vehicle_name || t.vehicle?.name || `${t.vehicle_make || ''} ${t.vehicle_model || ''}`).toLowerCase();
+    const vReg = (t.vehicle_registration_number || t.vehicle?.registration_number || '').toLowerCase();
+    const hName = (t.host_name || t.host?.name || t.host?.first_name || '').toLowerCase();
+    const hPhone = (t.host_phone || t.host?.phone || '').toLowerCase();
+    return vName.includes(q) || vReg.includes(q) || hName.includes(q) || hPhone.includes(q);
+  });
+
+  const totalTripsPages = Math.ceil(filteredTrips.length / pageSize) || 1;
+  const paginatedTrips = filteredTrips.slice((tripsPage - 1) * pageSize, tripsPage * pageSize);
+
+  const totalLedgerPages = Math.ceil(payouts.length / pageSize) || 1;
+  const paginatedLedger = payouts.slice((ledgerPage - 1) * pageSize, ledgerPage * pageSize);
+
+  // Direct Pay Handler: Creates payout and optionally records bank UTR
+  const handleProcessDirectPay = async () => {
+    if (!payTargetTrip) return;
+    const hostId = payTargetTrip.host?.id || payTargetTrip.host_id;
+    if (!hostId) {
+      alert('Host ID not found for this trip.');
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      // 1. Create Payout Record
+      const created = await api.createPayout(hostId, payTargetTrip.id);
+
+      // 2. If UTR was provided, also mark it as PAID immediately
+      if (payoutReference.trim() && created?.id) {
+        await api.markPayoutPaid(created.id, payoutReference.trim());
+      }
+
+      alert('Host payout processed successfully! Recorded in Ledger.');
+      setPayTargetTrip(null);
+      setPayoutReference('');
+      refreshAll();
+    } catch (err: any) {
+      alert(`Payout failed: ${err?.message || 'Server error'}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Mark Paid for existing payout record
+  const handleMarkPaidExisting = async () => {
+    if (!targetPayout || !markPaidRef.trim()) return;
+    try {
+      setActionLoading(true);
+      await api.markPayoutPaid(targetPayout.id, markPaidRef.trim());
+      alert('Payout marked as PAID successfully! Host notified.');
+      setTargetPayout(null);
+      setMarkPaidRef('');
+      fetchPayouts();
+    } catch (err: any) {
+      alert(`Mark paid failed: ${err?.message || 'Server error'}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const totalPendingAmount = eligibleTrips.reduce((acc, t) => acc + hostShare(t), 0);
+  const totalSettledAmount = payouts
+    .filter((p) => p.status === 'PAID')
+    .reduce((acc, p) => acc + (p.amount_paise || (p as any).amountPaise || 0), 0);
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-zinc-800">
         <div>
-          <h2 className="text-xl font-bold text-white tracking-tight">Host Payouts Ledger</h2>
-          <p className="text-xs text-slate-400 mt-1">
-            Track and disburse host earnings. Create payouts for completed trips and record bank IMPS / NEFT / UPI settlement references.
+          <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+            <CreditCard className="w-6 h-6 text-emerald-500" />
+            Host Payouts & Disbursements
+          </h2>
+          <p className="text-xs text-zinc-400 mt-1">
+            Review completed trips awaiting payment, verify host bank/UPI accounts, and disburse earnings with bank reference.
           </p>
         </div>
         <button
-          onClick={handleOpenCreateModal}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition shadow-lg shadow-emerald-900/30"
+          onClick={refreshAll}
+          disabled={tripsLoading || payoutsLoading}
+          className="flex items-center space-x-1.5 py-1.5 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-zinc-300 hover:text-white transition w-fit"
         >
-          <Plus className="w-4 h-4" />
-          Create Payout
+          <RefreshCw className={`w-3.5 h-3.5 ${tripsLoading || payoutsLoading ? 'animate-spin' : ''}`} />
+          <span>Refresh Data</span>
         </button>
       </div>
 
-      {/* How it works info box */}
-      <div className="rounded-xl bg-blue-900/20 border border-blue-800/40 px-5 py-4 text-xs text-blue-300 space-y-1">
-        <p className="font-semibold text-blue-200 mb-2 flex items-center gap-1.5"><AlertCircle className="w-4 h-4" /> Payout Flow — Admin kaise kare</p>
-        <p>1. 🏁 <strong>Trip COMPLETED</strong> hone ke baad "Create Payout" dabao</p>
-        <p>2. 📋 Completed trip select karo — host ka due amount automatically calculate hoga</p>
-        <p>3. 💸 Manually host ko <strong>UPI / IMPS / NEFT</strong> se paisa bhejo</p>
-        <p>4. ✅ Table mein "Mark Paid" dabao aur <strong>UTR / Reference number</strong> dalo</p>
-        <p>5. 🔔 Host ko automatic notification jayegi ki payout process ho gaya</p>
-      </div>
-
-      {/* Payouts Table */}
-      <div className="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-950/60 text-slate-400 font-semibold border-b border-slate-800 uppercase tracking-wider text-[10px]">
-              <tr>
-                <th className="px-5 py-3.5">Payout ID</th>
-                <th className="px-5 py-3.5">Host</th>
-                <th className="px-5 py-3.5">Disbursement Amount</th>
-                <th className="px-5 py-3.5">Status</th>
-                <th className="px-5 py-3.5">Gateway / Bank Ref</th>
-                <th className="px-5 py-3.5 text-right">Settlement Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/80">
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="px-5 py-12 text-center text-slate-500">
-                    Loading payouts...
-                  </td>
-                </tr>
-              ) : payouts.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-5 py-12 text-center">
-                    <div className="flex flex-col items-center gap-3 text-slate-500">
-                      <IndianRupee className="w-8 h-8 opacity-30" />
-                      <p>No payout records yet.</p>
-                      <button
-                        onClick={handleOpenCreateModal}
-                        className="px-4 py-2 rounded-xl bg-emerald-700/40 hover:bg-emerald-600 text-emerald-300 hover:text-white text-xs font-semibold transition"
-                      >
-                        + Create First Payout
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                paginatedPayouts.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-800/40 transition">
-                    <td className="px-5 py-4">
-                      <div className="flex items-center space-x-2">
-                        <CreditCard className="w-4 h-4 text-slate-500" />
-                        <div>
-                          <p className="font-semibold text-white font-mono text-[11px]">{p.id.slice(0, 12)}...</p>
-                          <p className="text-[10px] text-slate-500 font-mono">Host ID: {p.host_id.slice(0, 8)}</p>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="px-5 py-4">
-                      <p className="font-semibold text-white">{p.host?.first_name || 'Host'}</p>
-                      <p className="text-slate-400 font-mono text-[11px]">{p.host?.phone || p.host_id}</p>
-                    </td>
-
-                    <td className="px-5 py-4 font-bold text-white font-mono text-sm">
-                      {formatPrice(p.amount_paise)}
-                    </td>
-
-                    <td className="px-5 py-4">
-                      <span
-                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                          p.status === 'PAID'
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                            : p.status === 'PENDING'
-                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse'
-                            : p.status === 'PROCESSING'
-                            ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                            : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                        }`}
-                      >
-                        {p.status}
-                      </span>
-                    </td>
-
-                    <td className="px-5 py-4 font-mono text-slate-400 text-[11px]">
-                      {p.pg_payout_id || <span className="text-slate-600">Pending Ref</span>}
-                    </td>
-
-                    <td className="px-5 py-4 text-right">
-                      {p.status !== 'PAID' && (
-                        <button
-                          onClick={() => {
-                            setTargetPayout(p);
-                            setReference('');
-                          }}
-                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white transition flex items-center space-x-1.5 ml-auto"
-                        >
-                          <CheckCircle className="w-3.5 h-3.5" />
-                          <span>Mark Paid</span>
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Awaiting Payout</p>
+            <p className="text-2xl font-bold text-emerald-400 mt-1">{formatPrice(totalPendingAmount)}</p>
+            <p className="text-[11px] text-zinc-500 mt-0.5">{eligibleTrips.length} completed trips</p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <IndianRupee className="w-5 h-5" />
+          </div>
         </div>
 
-        {/* Pagination */}
-        {payouts.length > 0 && (
-          <div className="px-5 py-3.5 bg-slate-950/70 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
-            <div>
-              Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, payouts.length)} of {payouts.length} payouts
-            </div>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 transition"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="font-semibold text-white px-2">
-                Page {page} of {totalPages}
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-300 transition"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Total Settled (Paid)</p>
+            <p className="text-2xl font-bold text-white mt-1">{formatPrice(totalSettledAmount)}</p>
+            <p className="text-[11px] text-zinc-500 mt-0.5">{payouts.filter((p) => p.status === 'PAID').length} settlements</p>
           </div>
-        )}
+          <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+            <CheckCircle className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-2xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-medium text-zinc-400 uppercase tracking-wider">Payout Safety Guard</p>
+            <p className="text-sm font-bold text-emerald-400 mt-1 flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4" /> 100% Locked & Verified
+            </p>
+            <p className="text-[11px] text-zinc-500 mt-0.5">Unverified hosts cannot be paid</p>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+            <Clock className="w-5 h-5" />
+          </div>
+        </div>
       </div>
 
-      {/* ===== CREATE PAYOUT MODAL ===== */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden">
-            {/* Modal Header */}
-            <div className="px-6 py-5 border-b border-slate-800 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-emerald-400">
-                <Plus className="w-5 h-5" />
-                <h3 className="text-base font-bold text-white">Create Host Payout</h3>
-              </div>
-              <button onClick={() => setShowCreateModal(false)} className="text-slate-500 hover:text-white text-xl font-bold">×</button>
+      {/* Main Tab Navigation */}
+      <div className="flex items-center space-x-2 border-b border-zinc-800 pb-1">
+        <button
+          onClick={() => setActiveTab('PENDING_TRIPS')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 ${
+            activeTab === 'PENDING_TRIPS'
+              ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/40'
+              : 'text-zinc-400 hover:text-white bg-zinc-900/40 border border-zinc-800/40'
+          }`}
+        >
+          <Clock className="w-3.5 h-3.5" />
+          <span>Completed Trips to Pay</span>
+          <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-950/80 text-emerald-300 border border-emerald-800">
+            {eligibleTrips.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('LEDGER')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 ${
+            activeTab === 'LEDGER'
+              ? 'bg-zinc-800 text-white border border-zinc-700 shadow-md'
+              : 'text-zinc-400 hover:text-white bg-zinc-900/40 border border-zinc-800/40'
+          }`}
+        >
+          <CreditCard className="w-3.5 h-3.5" />
+          <span>Settlement Ledger History</span>
+          <span className="px-2 py-0.5 rounded-full text-[10px] bg-zinc-800 text-zinc-400 border border-zinc-700">
+            {payouts.length}
+          </span>
+        </button>
+      </div>
+
+      {/* TAB 1: PENDING COMPLETED TRIPS TO PAY */}
+      {activeTab === 'PENDING_TRIPS' && (
+        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-3xl overflow-hidden shadow-xl space-y-4 p-5">
+          {/* Search bar */}
+          <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+            <div className="relative w-full sm:w-80">
+              <Search className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search vehicle, plate number, host..."
+                value={tripsSearch}
+                onChange={(e) => {
+                  setTripsSearch(e.target.value);
+                  setTripsPage(1);
+                }}
+                className="w-full pl-10 pr-4 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500"
+              />
             </div>
+            <p className="text-xs text-zinc-400">
+              Showing <strong className="text-white">{filteredTrips.length}</strong> trips ready for payout
+            </p>
+          </div>
 
-            {/* Trips List */}
-            <div className="px-6 py-4 max-h-[60vh] overflow-y-auto space-y-2">
-              <p className="text-xs text-slate-400 mb-3">
-                Select a completed trip to create payout. Only <strong>FULL payment</strong> trips are eligible (cash trips have no online payout).
-              </p>
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-zinc-900/90 border-b border-zinc-800 text-zinc-400 uppercase font-semibold">
+                <tr>
+                  <th className="py-3 px-4">Vehicle & Completed Date</th>
+                  <th className="py-3 px-4">Host Details</th>
+                  <th className="py-3 px-4">Fare Split</th>
+                  <th className="py-3 px-4">Host Due Amount</th>
+                  <th className="py-3 px-4">Payout Destination</th>
+                  <th className="py-3 px-4 text-center">Verification</th>
+                  <th className="py-3 px-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-800/60">
+                {tripsLoading ? (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-zinc-500">
+                      <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-zinc-400" />
+                      Loading completed trips...
+                    </td>
+                  </tr>
+                ) : filteredTrips.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-zinc-500">
+                      {tripsSearch
+                        ? 'No completed trips match your search.'
+                        : 'No pending completed trips awaiting payout. All completed trips have been disbursed!'}
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedTrips.map((trip) => {
+                    const due = hostShare(trip);
+                    const vehicleName =
+                      trip.vehicle_name ||
+                      trip.vehicle?.name ||
+                      [trip.vehicle_make || trip.vehicle?.make, trip.vehicle_model || trip.vehicle?.model]
+                        .filter(Boolean)
+                        .join(' ') ||
+                      'Vehicle';
+                    const regNum = trip.vehicle_registration_number || trip.vehicle?.registration_number;
+                    const hostName = trip.host_name || trip.host?.name || trip.host?.first_name || 'Host';
+                    const hostPhone = trip.host_phone || trip.host?.phone || '';
+                    const isVerified = trip.host?.payout_verified === true;
+                    const payoutMethod = trip.host?.payout_method || 'UPI';
+                    const upiVpa = trip.host?.upi_vpa;
+                    const bankAcc = trip.host?.bank_account_number;
+                    const bankIfsc = trip.host?.bank_ifsc;
+                    const completedDate = trip.completed_at || trip.end_date || trip.created_at;
 
-              {tripsLoading ? (
-                <div className="text-center py-8 text-slate-500 text-sm">Loading completed trips...</div>
-              ) : eligibleTrips.length === 0 ? (
-                <div className="text-center py-8 text-slate-500 text-sm flex flex-col items-center gap-2">
-                  <Clock className="w-8 h-8 opacity-30" />
-                  <p>No eligible completed trips found.</p>
-                  <p className="text-xs text-slate-600">Either all trips have payouts already, or no FULL-payment completed trips exist.</p>
-                </div>
-              ) : (
-                eligibleTrips.map((trip) => {
-                  const isSelected = selectedTrip?.id === trip.id;
-                  const due = hostShare(trip);
-                  const vehicleName = trip.vehicle_name
-                    || trip.vehicle?.name
-                    || [trip.vehicle_make || trip.vehicle?.make, trip.vehicle_model || trip.vehicle?.model].filter(Boolean).join(' ')
-                    || (trip.vehicle_registration_number ? `Vehicle (${trip.vehicle_registration_number})` : 'Vehicle');
-                  const regNum = trip.vehicle_registration_number || trip.vehicle?.registration_number;
-                  const hostName = trip.host_name || trip.host?.name || trip.host?.first_name || 'Host';
-                  const hostPhone = trip.host_phone || trip.host?.phone || '';
-                  const isVerified = trip.host?.payout_verified === true;
-                  const payoutMethod = trip.host?.payout_method || 'UPI';
-                  const upiVpa = trip.host?.upi_vpa;
-                  const bankAcc = trip.host?.bank_account_number;
-                  const bankIfsc = trip.host?.bank_ifsc;
-
-                  return (
-                    <div
-                      key={trip.id}
-                      onClick={() => setSelectedTrip(isSelected ? null : trip)}
-                      className={`rounded-xl border p-4 cursor-pointer transition space-y-2 ${
-                        isSelected
-                          ? 'border-emerald-500 bg-emerald-500/10'
-                          : 'border-slate-800 bg-slate-950/50 hover:border-slate-600'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${isSelected ? 'border-emerald-400 bg-emerald-400' : 'border-slate-600'}`} />
-                          <div>
-                            <div className="flex items-center space-x-2">
-                              <p className="text-white font-semibold text-sm">{vehicleName}</p>
-                              {regNum && (
-                                <span className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] font-mono text-slate-300">
-                                  {regNum}
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-slate-400 text-[11px] font-mono">Trip: {trip.id.slice(0, 12)}...</p>
-                            <p className="text-slate-300 text-[11px] font-medium">
-                              Host: <span className="text-white font-bold">{hostName}</span> {hostPhone && `• ${hostPhone}`}
-                            </p>
+                    return (
+                      <tr key={trip.id} className="hover:bg-zinc-800/30 transition">
+                        {/* Vehicle & Date */}
+                        <td className="py-3 px-4">
+                          <div className="flex items-center space-x-2">
+                            <span className="font-bold text-white text-sm">{vehicleName}</span>
+                            {regNum && (
+                              <span className="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[10px] font-mono text-zinc-300">
+                                {regNum}
+                              </span>
+                            )}
                           </div>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="text-emerald-400 font-bold text-base font-mono">{formatPrice(due)}</p>
-                          <p className="text-slate-500 text-[10px]">Host's share</p>
-                          <p className="text-slate-600 text-[10px]">Total: {formatPrice(trip.rent_paise)} | Fee: {formatPrice(trip.platform_fee_paise)}</p>
-                        </div>
-                      </div>
+                          <p className="text-zinc-500 text-[11px] font-mono mt-0.5">
+                            {completedDate
+                              ? new Date(completedDate).toLocaleString('en-IN', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })
+                              : 'Trip Completed'}
+                          </p>
+                        </td>
 
-                      {/* Host Bank & Verification Status Details */}
-                      <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] flex-wrap gap-2">
-                        <div className="flex items-center space-x-2 font-mono text-slate-300">
-                          <span className="text-slate-500 font-sans">Payout To:</span>
+                        {/* Host */}
+                        <td className="py-3 px-4">
+                          <p className="font-semibold text-white">{hostName}</p>
+                          <p className="text-zinc-400 text-[11px] font-mono">{hostPhone || 'No phone'}</p>
+                        </td>
+
+                        {/* Fare Split */}
+                        <td className="py-3 px-4 font-mono text-[11px] text-zinc-400">
+                          <p>Total: <span className="text-zinc-200">{formatPrice(trip.rent_paise)}</span></p>
+                          <p>Fee: <span className="text-zinc-400">{formatPrice(trip.platform_fee_paise)}</span></p>
+                        </td>
+
+                        {/* Host Due Amount */}
+                        <td className="py-3 px-4 font-mono">
+                          <p className="text-emerald-400 font-bold text-base">{formatPrice(due)}</p>
+                          <span className="text-[10px] text-zinc-500 font-sans">Net Host Share</span>
+                        </td>
+
+                        {/* Payout Destination */}
+                        <td className="py-3 px-4 text-xs font-mono">
                           {payoutMethod === 'BANK' ? (
-                            <span>A/C: <strong className="text-white">{bankAcc || '••••'}</strong> (IFSC: {bankIfsc || 'N/A'})</span>
+                            <div>
+                              <div className="flex items-center space-x-1 text-blue-400 font-sans font-semibold text-[11px]">
+                                <Building className="w-3.5 h-3.5" />
+                                <span>Bank Account</span>
+                              </div>
+                              <p className="text-white text-[11px] font-bold">A/C: {bankAcc || '••••'}</p>
+                              <p className="text-zinc-400 text-[10px]">IFSC: {bankIfsc || 'N/A'}</p>
+                            </div>
                           ) : (
-                            <span>UPI: <strong className="text-white">{upiVpa || 'Not Provided'}</strong></span>
+                            <div>
+                              <div className="flex items-center space-x-1 text-emerald-400 font-sans font-semibold text-[11px]">
+                                <Smartphone className="w-3.5 h-3.5" />
+                                <span>UPI (VPA)</span>
+                              </div>
+                              <p className="text-white text-[11px] font-bold truncate max-w-[180px]">{upiVpa || 'Not provided'}</p>
+                            </div>
                           )}
-                        </div>
+                        </td>
 
-                        <div>
+                        {/* Verification Status */}
+                        <td className="py-3 px-4 text-center">
                           {isVerified ? (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center space-x-1">
-                              <span>✓ Payout Verified</span>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                              <Check className="w-3 h-3" />
+                              Verified
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center space-x-1">
-                              <span>⏳ Approval Pending</span>
+                            <span
+                              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30"
+                              title="Host bank or UPI details are pending admin verification in Users & KYC Approvals"
+                            >
+                              <AlertCircle className="w-3 h-3" />
+                              Unverified
                             </span>
                           )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
+                        </td>
+
+                        {/* Action */}
+                        <td className="py-3 px-4 text-right">
+                          {isVerified ? (
+                            <button
+                              onClick={() => {
+                                setPayTargetTrip(trip);
+                                setPayoutReference('');
+                              }}
+                              className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-950/40 transition inline-flex items-center gap-1.5"
+                            >
+                              <span>Pay {formatPrice(due)}</span>
+                              <span>→</span>
+                            </button>
+                          ) : (
+                            <button
+                              disabled
+                              className="px-3.5 py-1.5 rounded-xl text-[11px] font-bold bg-zinc-800 text-zinc-500 border border-zinc-700/60 cursor-not-allowed"
+                              title="Payout is locked because Host KYC / Bank details are unverified. Please verify in Users & KYC first."
+                            >
+                              Verify Bank First
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {filteredTrips.length > 0 && (
+            <div className="px-2 py-3 border-t border-zinc-800 flex items-center justify-between text-xs text-zinc-400">
+              <div>
+                Showing {(tripsPage - 1) * pageSize + 1} to {Math.min(tripsPage * pageSize, filteredTrips.length)} of {filteredTrips.length} pending trips
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setTripsPage((p) => Math.max(1, p - 1))}
+                  disabled={tripsPage <= 1}
+                  className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-zinc-300 transition"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="font-semibold text-white px-2">
+                  Page {tripsPage} of {totalTripsPages}
+                </span>
+                <button
+                  onClick={() => setTripsPage((p) => Math.min(totalTripsPages, p + 1))}
+                  disabled={tripsPage >= totalTripsPages}
+                  className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-zinc-300 transition"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 2: SETTLED PAYOUTS LEDGER */}
+      {activeTab === 'LEDGER' && (
+        <div className="bg-zinc-900/60 border border-zinc-800/80 rounded-3xl overflow-hidden shadow-xl p-5 space-y-4">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-zinc-900/90 border-b border-zinc-800 text-zinc-400 uppercase font-semibold">
+                <tr>
+                  <th className="py-3 px-4">Payout ID</th>
+                  <th className="py-3 px-4">Host Name</th>
+                  <th className="py-3 px-4">Disbursement Amount</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Gateway / Bank UTR Ref</th>
+                  <th className="py-3 px-4 text-right">Settlement Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-800/60">
+                {payoutsLoading ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-zinc-500">
+                      <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-zinc-400" />
+                      Loading payout ledger...
+                    </td>
+                  </tr>
+                ) : payouts.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-zinc-500">
+                      No payout records generated yet. Pay a completed trip from the "Completed Trips to Pay" tab.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedLedger.map((p) => {
+                    const amount = p.amount_paise || (p as any).amountPaise || 0;
+                    return (
+                      <tr key={p.id} className="hover:bg-zinc-800/30 transition">
+                        <td className="py-3 px-4 font-mono text-zinc-400 text-[11px]">
+                          {p.id.slice(0, 8)}...
+                        </td>
+                        <td className="py-3 px-4 font-semibold text-white">
+                          {(p as any).host_name || (p as any).host?.name || p.host_id?.slice(0, 8) || 'Host'}
+                        </td>
+                        <td className="py-3 px-4 font-mono font-bold text-emerald-400 text-sm">
+                          {formatPrice(amount)}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                              p.status === 'PAID'
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                                : p.status === 'FAILED'
+                                ? 'bg-red-500/10 text-red-400 border border-red-500/30'
+                                : 'bg-amber-500/10 text-amber-300 border border-amber-500/30'
+                            }`}
+                          >
+                            {p.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 font-mono text-zinc-300 text-[11px]">
+                          {p.reference || p.pg_payout_id || <span className="text-zinc-600 italic">None recorded</span>}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          {p.status === 'PENDING' ? (
+                            <button
+                              onClick={() => {
+                                setTargetPayout(p);
+                                setMarkPaidRef('');
+                              }}
+                              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-zinc-800 hover:bg-emerald-600 text-zinc-300 hover:text-white transition"
+                            >
+                              Record UTR / Mark Paid
+                            </button>
+                          ) : (
+                            <span className="text-emerald-400 text-[11px] font-semibold flex items-center justify-end gap-1">
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              Settled
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {payouts.length > 0 && (
+            <div className="px-2 py-3 border-t border-zinc-800 flex items-center justify-between text-xs text-zinc-400">
+              <div>
+                Showing {(ledgerPage - 1) * pageSize + 1} to {Math.min(ledgerPage * pageSize, payouts.length)} of {payouts.length} payouts
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setLedgerPage((p) => Math.max(1, p - 1))}
+                  disabled={ledgerPage <= 1}
+                  className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-zinc-300 transition"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="font-semibold text-white px-2">
+                  Page {ledgerPage} of {totalLedgerPages}
+                </span>
+                <button
+                  onClick={() => setLedgerPage((p) => Math.min(totalLedgerPages, p + 1))}
+                  disabled={ledgerPage >= totalLedgerPages}
+                  className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-zinc-300 transition"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* CONFIRM PAY HOST MODAL */}
+      {payTargetTrip && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <IndianRupee className="w-5 h-5 text-emerald-400" />
+                Disburse Host Earnings
+              </h3>
+              <button
+                onClick={() => setPayTargetTrip(null)}
+                className="text-zinc-500 hover:text-white text-xl font-bold"
+              >
+                ×
+              </button>
             </div>
 
-            {/* Warning if host is unverified */}
-            {selectedTrip && !selectedTrip.host?.payout_verified && (
-              <div className="px-6 py-2 bg-amber-500/10 border-t border-amber-500/20 text-xs text-amber-300 flex items-center space-x-2">
-                <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                <span>
-                  <strong>Payout Locked:</strong> Is Host ki UPI / Bank details verified nahi hain (ya host ne details change ki hain). Payout create karne se pehle <strong>Users & KYC Approvals</strong> me jaakar inki payout details approve karein.
+            {/* Trip & Destination Summary */}
+            <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-3 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-400">Host:</span>
+                <span className="font-bold text-white">
+                  {payTargetTrip.host_name || payTargetTrip.host?.name || 'Host'}
                 </span>
               </div>
-            )}
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-400">Vehicle:</span>
+                <span className="font-semibold text-zinc-200">
+                  {payTargetTrip.vehicle_name || payTargetTrip.vehicle?.name || 'Vehicle'} (
+                  {payTargetTrip.vehicle_registration_number || payTargetTrip.vehicle?.registration_number || 'N/A'})
+                </span>
+              </div>
+              <div className="flex items-center justify-between border-t border-zinc-800/80 pt-2">
+                <span className="text-zinc-400">Payout Destination:</span>
+                <span className="font-mono font-bold text-emerald-400">
+                  {payTargetTrip.host?.payout_method === 'BANK'
+                    ? `A/C: ${payTargetTrip.host.bank_account_number || '••••'} (${payTargetTrip.host.bank_ifsc || 'N/A'})`
+                    : `UPI: ${payTargetTrip.host?.upi_vpa || 'N/A'}`}
+                </span>
+              </div>
+              <div className="flex items-center justify-between border-t border-zinc-800/80 pt-2 text-sm">
+                <span className="font-bold text-white">Disbursement Amount:</span>
+                <span className="font-mono font-bold text-emerald-400 text-lg">
+                  {formatPrice(hostShare(payTargetTrip))}
+                </span>
+              </div>
+            </div>
 
-            {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-slate-800 bg-slate-950/50 flex items-center justify-between gap-4">
-              <div className="text-xs text-slate-400">
-                {selectedTrip ? (
-                  <span className={selectedTrip.host?.payout_verified ? "text-emerald-400 font-semibold" : "text-amber-400 font-semibold"}>
-                    {selectedTrip.host?.payout_verified
-                      ? `✓ Selected: ${formatPrice(hostShare(selectedTrip))} payout to ${selectedTrip.host_name || selectedTrip.host?.name || 'Host'}`
-                      : `⚠️ Selected: ${formatPrice(hostShare(selectedTrip))} (Payout verification required)`}
-                  </span>
-                ) : (
-                  'Select a trip above to continue'
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCreatePayout}
-                  disabled={!selectedTrip || !selectedTrip.host?.payout_verified || creating}
-                  className="px-5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-900/30 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {!selectedTrip
-                    ? 'Select a trip'
-                    : !selectedTrip.host?.payout_verified
-                    ? 'Approval Pending (Cannot Pay)'
-                    : creating
-                    ? 'Creating...'
-                    : 'Create Payout →'}
-                </button>
-              </div>
+            {/* Optional UTR input */}
+            <div>
+              <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-1.5">
+                Bank UTR / Transaction Reference (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. IMPS/UTR1234567890 or UPI Ref ID"
+                value={payoutReference}
+                onChange={(e) => setPayoutReference(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 font-mono"
+              />
+              <p className="text-[10px] text-zinc-500 mt-1">
+                Aap UTR abhi daal sakte hain ya baad me Ledger tab se bhi "Record UTR" kar sakte hain.
+              </p>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex items-center justify-end space-x-3 pt-2">
+              <button
+                onClick={() => setPayTargetTrip(null)}
+                disabled={actionLoading}
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleProcessDirectPay}
+                disabled={actionLoading}
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-950/40"
+              >
+                {actionLoading ? 'Processing Payout...' : 'Confirm & Disburse Now →'}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ===== MARK PAID MODAL ===== */}
+      {/* MARK PAID MODAL (For existing ledger items) */}
       {targetPayout && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
-            <div className="flex items-center space-x-2 text-emerald-400">
-              <CheckCircle className="w-5 h-5" />
-              <h3 className="text-base font-bold text-white">Record Settlement Reference</h3>
-            </div>
-            <p className="text-xs text-slate-400">
-              Mark payout of <span className="font-bold text-white">{formatPrice(targetPayout.amount_paise)}</span> as PAID.
-              <br />Host will get a push notification once marked.
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-emerald-400" />
+              Record Bank Settlement UTR
+            </h3>
+            <p className="text-xs text-zinc-400">
+              Provide the IMPS/NEFT/UPI banking transaction reference ID to mark this payout as PAID.
             </p>
-
-            <div className="bg-slate-950 rounded-xl p-3 text-xs text-slate-400 space-y-1">
-              <p><span className="text-slate-500">Host:</span> <span className="text-white">{targetPayout.host?.first_name || 'Host'} — {targetPayout.host?.phone || targetPayout.host_id}</span></p>
-              <p><span className="text-slate-500">Amount:</span> <span className="text-emerald-400 font-bold">{formatPrice(targetPayout.amount_paise)}</span></p>
-            </div>
-
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">
-                Bank UTR / UPI Transaction Reference #
+              <label className="block text-xs font-medium text-zinc-400 mb-1">
+                Banking Transaction UTR / Ref *
               </label>
               <input
                 type="text"
-                value={reference}
-                onChange={(e) => setReference(e.target.value)}
-                placeholder="e.g. UTR1234567890 or IMPS_REF_9988"
-                className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-xl text-white font-mono focus:outline-none focus:border-emerald-500"
+                required
+                placeholder="e.g. UTR20261113009988"
+                value={markPaidRef}
+                onChange={(e) => setMarkPaidRef(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-emerald-500 font-mono"
+                autoFocus
               />
-              <p className="text-[10px] text-slate-600 mt-1">Ye reference host ke notification mein bhi jayega</p>
             </div>
-
             <div className="flex items-center justify-end space-x-3 pt-2">
               <button
                 onClick={() => setTargetPayout(null)}
-                className="px-4 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl"
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
               >
                 Cancel
               </button>
               <button
-                onClick={handleMarkPaid}
-                disabled={submitting}
-                className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-900/30 disabled:opacity-50"
+                onClick={handleMarkPaidExisting}
+                disabled={actionLoading || !markPaidRef.trim()}
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-40"
               >
-                {submitting ? 'Recording...' : 'Confirm Paid ✓'}
+                {actionLoading ? 'Saving...' : 'Mark as PAID ✓'}
               </button>
             </div>
           </div>

@@ -357,6 +357,13 @@ export const api = {
     });
   },
 
+  uploadNotificationBanner: async (base64: string, mimeType?: string, filename?: string) => {
+    return request<{ success: boolean; url: string }>('/admin/notifications/upload-banner', {
+      method: 'POST',
+      body: JSON.stringify({ image_base64: base64, mime_type: mimeType, filename }),
+    });
+  },
+
   getNotificationHistory: async (page = 1, limit = 20) => {
     return request<{
       items: Array<{

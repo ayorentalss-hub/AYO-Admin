@@ -261,6 +261,7 @@ export interface PayoutItem {
   amount_paise: number;
   status: 'PENDING' | 'PROCESSING' | 'PAID' | 'FAILED';
   pg_payout_id?: string | null;
+  reference?: string | null;
   created_at: string;
   host?: {
     first_name?: string;
