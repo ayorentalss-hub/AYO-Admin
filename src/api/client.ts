@@ -54,9 +54,11 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
   // Idempotency: Auto-assign key for mutation requests to prevent double-execution & satisfy backend guard
   if (['POST', 'PATCH', 'PUT'].includes((options.method || 'GET').toUpperCase()) && !headers['Idempotency-Key']) {
-    headers['Idempotency-Key'] = typeof crypto !== 'undefined' && crypto.randomUUID
-      ? crypto.randomUUID()
-      : `req-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    if (!endpoint.includes('/auth/')) {
+      headers['Idempotency-Key'] = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `req-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    }
   }
 
   const res = await fetch(url, {
