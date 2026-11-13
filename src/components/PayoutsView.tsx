@@ -8,13 +8,34 @@ interface CompletedTrip {
   status: string;
   host_id?: string;
   vehicle_id?: string;
+  vehicle_name?: string;
+  vehicle_make?: string;
+  vehicle_model?: string;
+  vehicle_registration_number?: string;
   rent_paise?: number;
   platform_fee_paise?: number;
   split_type?: string;
   completed_at?: string;
+  customer_name?: string;
+  customer_phone?: string;
   customer?: { name?: string; phone?: string };
-  vehicle?: { make?: string; model?: string; name?: string };
-  host?: { first_name?: string; phone?: string; id?: string };
+  vehicle?: { make?: string; model?: string; name?: string; registration_number?: string };
+  host_name?: string;
+  host_phone?: string;
+  host?: {
+    id?: string;
+    name?: string;
+    first_name?: string;
+    last_name?: string;
+    phone?: string;
+    payout_method?: string;
+    upi_vpa?: string;
+    bank_account_number?: string;
+    bank_ifsc?: string;
+    bank_account_name?: string;
+    payout_status?: string;
+    payout_verified?: boolean;
+  };
 }
 
 export const PayoutsView: React.FC = () => {
@@ -321,15 +342,24 @@ export const PayoutsView: React.FC = () => {
                 eligibleTrips.map((trip) => {
                   const isSelected = selectedTrip?.id === trip.id;
                   const due = hostShare(trip);
-                  const vehicleName = trip.vehicle?.name || `${trip.vehicle?.make || ''} ${trip.vehicle?.model || ''}`.trim() || 'Vehicle';
-                  const hostName = trip.host?.first_name || 'Host';
-                  const hostPhone = trip.host?.phone || '';
+                  const vehicleName = trip.vehicle_name
+                    || trip.vehicle?.name
+                    || [trip.vehicle_make || trip.vehicle?.make, trip.vehicle_model || trip.vehicle?.model].filter(Boolean).join(' ')
+                    || (trip.vehicle_registration_number ? `Vehicle (${trip.vehicle_registration_number})` : 'Vehicle');
+                  const regNum = trip.vehicle_registration_number || trip.vehicle?.registration_number;
+                  const hostName = trip.host_name || trip.host?.name || trip.host?.first_name || 'Host';
+                  const hostPhone = trip.host_phone || trip.host?.phone || '';
+                  const isVerified = trip.host?.payout_verified === true;
+                  const payoutMethod = trip.host?.payout_method || 'UPI';
+                  const upiVpa = trip.host?.upi_vpa;
+                  const bankAcc = trip.host?.bank_account_number;
+                  const bankIfsc = trip.host?.bank_ifsc;
 
                   return (
                     <div
                       key={trip.id}
                       onClick={() => setSelectedTrip(isSelected ? null : trip)}
-                      className={`rounded-xl border p-4 cursor-pointer transition ${
+                      className={`rounded-xl border p-4 cursor-pointer transition space-y-2 ${
                         isSelected
                           ? 'border-emerald-500 bg-emerald-500/10'
                           : 'border-slate-800 bg-slate-950/50 hover:border-slate-600'
@@ -339,9 +369,18 @@ export const PayoutsView: React.FC = () => {
                         <div className="flex items-center gap-3">
                           <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${isSelected ? 'border-emerald-400 bg-emerald-400' : 'border-slate-600'}`} />
                           <div>
-                            <p className="text-white font-semibold text-sm">{vehicleName}</p>
+                            <div className="flex items-center space-x-2">
+                              <p className="text-white font-semibold text-sm">{vehicleName}</p>
+                              {regNum && (
+                                <span className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] font-mono text-slate-300">
+                                  {regNum}
+                                </span>
+                              )}
+                            </div>
                             <p className="text-slate-400 text-[11px] font-mono">Trip: {trip.id.slice(0, 12)}...</p>
-                            <p className="text-slate-400 text-[11px]">Host: {hostName} {hostPhone && `• ${hostPhone}`}</p>
+                            <p className="text-slate-300 text-[11px] font-medium">
+                              Host: <span className="text-white font-bold">{hostName}</span> {hostPhone && `• ${hostPhone}`}
+                            </p>
                           </div>
                         </div>
                         <div className="text-right flex-shrink-0">
@@ -350,18 +389,54 @@ export const PayoutsView: React.FC = () => {
                           <p className="text-slate-600 text-[10px]">Total: {formatPrice(trip.rent_paise)} | Fee: {formatPrice(trip.platform_fee_paise)}</p>
                         </div>
                       </div>
+
+                      {/* Host Bank & Verification Status Details */}
+                      <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] flex-wrap gap-2">
+                        <div className="flex items-center space-x-2 font-mono text-slate-300">
+                          <span className="text-slate-500 font-sans">Payout To:</span>
+                          {payoutMethod === 'BANK' ? (
+                            <span>A/C: <strong className="text-white">{bankAcc || '••••'}</strong> (IFSC: {bankIfsc || 'N/A'})</span>
+                          ) : (
+                            <span>UPI: <strong className="text-white">{upiVpa || 'Not Provided'}</strong></span>
+                          )}
+                        </div>
+
+                        <div>
+                          {isVerified ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center space-x-1">
+                              <span>✓ Payout Verified</span>
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center space-x-1">
+                              <span>⏳ Approval Pending</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   );
                 })
               )}
             </div>
 
+            {/* Warning if host is unverified */}
+            {selectedTrip && !selectedTrip.host?.payout_verified && (
+              <div className="px-6 py-2 bg-amber-500/10 border-t border-amber-500/20 text-xs text-amber-300 flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                <span>
+                  <strong>Payout Locked:</strong> Is Host ki UPI / Bank details verified nahi hain (ya host ne details change ki hain). Payout create karne se pehle <strong>Users & KYC Approvals</strong> me jaakar inki payout details approve karein.
+                </span>
+              </div>
+            )}
+
             {/* Modal Footer */}
             <div className="px-6 py-4 border-t border-slate-800 bg-slate-950/50 flex items-center justify-between gap-4">
               <div className="text-xs text-slate-400">
                 {selectedTrip ? (
-                  <span className="text-emerald-400 font-semibold">
-                    ✓ Selected: {formatPrice(hostShare(selectedTrip))} payout
+                  <span className={selectedTrip.host?.payout_verified ? "text-emerald-400 font-semibold" : "text-amber-400 font-semibold"}>
+                    {selectedTrip.host?.payout_verified
+                      ? `✓ Selected: ${formatPrice(hostShare(selectedTrip))} payout to ${selectedTrip.host_name || selectedTrip.host?.name || 'Host'}`
+                      : `⚠️ Selected: ${formatPrice(hostShare(selectedTrip))} (Payout verification required)`}
                   </span>
                 ) : (
                   'Select a trip above to continue'
@@ -376,10 +451,16 @@ export const PayoutsView: React.FC = () => {
                 </button>
                 <button
                   onClick={handleCreatePayout}
-                  disabled={!selectedTrip || creating}
+                  disabled={!selectedTrip || !selectedTrip.host?.payout_verified || creating}
                   className="px-5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-lg shadow-emerald-900/30 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {creating ? 'Creating...' : 'Create Payout →'}
+                  {!selectedTrip
+                    ? 'Select a trip'
+                    : !selectedTrip.host?.payout_verified
+                    ? 'Approval Pending (Cannot Pay)'
+                    : creating
+                    ? 'Creating...'
+                    : 'Create Payout →'}
                 </button>
               </div>
             </div>

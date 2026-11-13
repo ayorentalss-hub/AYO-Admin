@@ -196,6 +196,17 @@ export const api = {
     });
   },
 
+  approveHostNpci: async (id: string) => {
+    return request<any>(`/admin/hosts/${id}/npci/approve`, { method: 'POST' });
+  },
+
+  rejectHostNpci: async (id: string, reason?: string) => {
+    return request<any>(`/admin/hosts/${id}/npci/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  },
+
   getCustomerKyc: async (id: string) => {
     return request<any>(`/admin/customers/${id}/kyc`);
   },

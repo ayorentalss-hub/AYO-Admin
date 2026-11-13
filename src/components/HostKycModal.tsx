@@ -59,11 +59,47 @@ export const HostKycModal: React.FC<HostKycModalProps> = ({
     try {
       setActionLoading(true);
       await api.approveHostKyc(hostId);
-      onNotify('success', 'Host KYC Verified', 'The host has been verified and their listing privileges unlocked.');
+      onNotify('success', 'Host Full KYC Verified', 'The host has been verified and their listing privileges unlocked.');
       onRefresh();
       onClose();
     } catch (err: any) {
       onNotify('error', 'Verification Failed', err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleApproveNpci = async () => {
+    try {
+      setActionLoading(true);
+      await api.approveHostNpci(hostId);
+      onNotify('success', 'Legal NPCI / Payout Verified', 'Host UPI / Bank payout details have been verified.');
+      const res = await api.getHostKyc(hostId);
+      setData(res);
+      onRefresh();
+    } catch (err: any) {
+      onNotify('error', 'NPCI Verification Failed', err.message);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRejectNpci = async () => {
+    if (!rejectReason.trim()) {
+      onNotify('error', 'Reason Required', 'Please enter a rejection reason so the host can correct their payout details.');
+      return;
+    }
+    try {
+      setActionLoading(true);
+      await api.rejectHostNpci(hostId, rejectReason.trim());
+      onNotify('success', 'NPCI / Payout Rejected', `Payout details marked as rejected and notification sent to host: "${rejectReason.trim()}".`);
+      setShowRejectInput(false);
+      setRejectReason('');
+      const res = await api.getHostKyc(hostId);
+      setData(res);
+      onRefresh();
+    } catch (err: any) {
+      onNotify('error', 'Rejection Failed', err.message);
     } finally {
       setActionLoading(false);
     }
@@ -311,7 +347,7 @@ export const HostKycModal: React.FC<HostKycModalProps> = ({
                           </button>
                           <button
                             type="button"
-                            onClick={handleApprove}
+                            onClick={handleApproveNpci}
                             disabled={actionLoading}
                             className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-md transition flex items-center space-x-1.5"
                           >
@@ -358,7 +394,7 @@ export const HostKycModal: React.FC<HostKycModalProps> = ({
                             </button>
                             <button
                               type="button"
-                              onClick={handleReject}
+                              onClick={handleRejectNpci}
                               disabled={actionLoading || !rejectReason.trim()}
                               className="px-4 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 rounded-xl transition flex items-center space-x-1 disabled:opacity-50"
                             >
