@@ -440,7 +440,7 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onRefreshStats }) =>
                     <span>Inspect Docs</span>
                   </button>
 
-                  {v.status !== 'ACTIVE' && (
+                  {v.status !== 'ACTIVE' && v.status !== 'DRAFT' && (
                     <>
                       <button
                         onClick={() => handleApprove(v)}
@@ -460,6 +460,11 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onRefreshStats }) =>
                         <XCircle className="w-4 h-4" />
                       </button>
                     </>
+                  )}
+                  {v.status === 'DRAFT' && (
+                    <span className="text-[10px] font-medium text-amber-400/90 px-2 py-1 bg-amber-500/10 rounded-lg border border-amber-500/20">
+                      Draft (Not Submitted)
+                    </span>
                   )}
                 </div>
               </div>
@@ -1019,7 +1024,29 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onRefreshStats }) =>
               >
                 Close
               </button>
-              {selectedVehicle.status !== 'ACTIVE' ? (
+              {selectedVehicle.status === 'ACTIVE' ? (
+                <div className="flex items-center space-x-3">
+                  <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center space-x-1.5">
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    <span>Listing Active</span>
+                  </span>
+                  <button
+                    onClick={() => {
+                      setRejectingVehicle(selectedVehicle);
+                      setRejectReason('');
+                    }}
+                    className="px-4 py-2 text-xs font-bold text-rose-400 hover:text-white bg-rose-500/10 hover:bg-rose-600 border border-rose-500/20 rounded-xl transition"
+                  >
+                    Reject Listing
+                  </button>
+                </div>
+              ) : selectedVehicle.status === 'DRAFT' ? (
+                <div className="flex items-center space-x-3">
+                  <span className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    Host Draft — Incomplete / Not Submitted Yet
+                  </span>
+                </div>
+              ) : (
                 <div className="flex items-center space-x-3">
                   <button
                     onClick={() => {
@@ -1036,22 +1063,6 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({ onRefreshStats }) =>
                   >
                     <CheckCircle className="w-3.5 h-3.5" />
                     <span>Approve Listing</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center space-x-3">
-                  <span className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center space-x-1.5">
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    <span>Listing Active</span>
-                  </span>
-                  <button
-                    onClick={() => {
-                      setRejectingVehicle(selectedVehicle);
-                      setRejectReason('');
-                    }}
-                    className="px-4 py-2 text-xs font-bold text-rose-400 hover:text-white bg-rose-500/10 hover:bg-rose-600 border border-rose-500/20 rounded-xl transition"
-                  >
-                    Revoke Listing
                   </button>
                 </div>
               )}
