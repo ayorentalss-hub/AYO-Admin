@@ -42,7 +42,7 @@ export const PayoutsView: React.FC = () => {
   const [payouts, setPayouts] = useState<PayoutItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState<number>(1);
-  const pageSize = 15;
+  const pageSize = 20;
 
   // Create payout modal
   const [showCreateModal, setShowCreateModal] = useState(false);

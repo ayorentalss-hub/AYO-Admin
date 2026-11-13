@@ -142,8 +142,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-64 bg-slate-900 border-r border-slate-800 flex-col shrink-0 min-h-[calc(100vh-73px)]">
+      {/* Desktop Sidebar (Fixed & Pinned) */}
+      <aside className="hidden md:flex w-64 bg-slate-900 border-r border-slate-800 flex-col shrink-0 h-full overflow-y-auto">
         {content}
       </aside>
 

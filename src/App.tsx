@@ -207,7 +207,7 @@ export const AdminDashboardApp: React.FC = () => {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans">
+      <div className="h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans overflow-hidden">
         <Header
           onRefresh={fetchGlobalStats}
           isLoading={isLoading}

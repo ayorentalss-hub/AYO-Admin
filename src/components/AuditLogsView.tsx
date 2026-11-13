@@ -22,7 +22,7 @@ export const AuditLogsView: React.FC = () => {
   const fetchAuditLogs = async () => {
     try {
       setLoading(true);
-      const res = await api.getAuditLogs(actionFilter, page, 30);
+      const res = await api.getAuditLogs(actionFilter, page, 20);
       setLogs(res.items || []);
       setTotal(res.total || 0);
     } catch (err: any) {
@@ -49,7 +49,7 @@ export const AuditLogsView: React.FC = () => {
     return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
   };
 
-  const totalPages = Math.ceil(total / 30) || 1;
+  const totalPages = Math.ceil(total / 20) || 1;
 
   return (
     <div className="space-y-6">
@@ -188,7 +188,7 @@ export const AuditLogsView: React.FC = () => {
         {/* Pagination Footer */}
         <div className="p-4 bg-slate-950/60 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
           <div>
-            Showing {logs.length > 0 ? (page - 1) * 30 + 1 : 0} to {Math.min(page * 30, total)} of {total} audit records
+            Showing {logs.length > 0 ? (page - 1) * 20 + 1 : 0} to {Math.min(page * 20, total)} of {total} audit records
           </div>
           <div className="flex items-center space-x-2">
             <button

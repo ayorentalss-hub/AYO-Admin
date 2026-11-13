@@ -17,6 +17,8 @@ import {
   IndianRupee,
   ShieldCheck,
   Ticket,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import type { CouponItem, CouponUsageItem, CreateCouponInput } from '../types';
 import { api } from '../api/client';
@@ -27,6 +29,8 @@ export const CouponsView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [page, setPage] = useState<number>(1);
+  const pageSize = 20;
 
   // Create Modal State
   const [isCreateOpen, setIsCreateOpen] = useState<boolean>(false);
@@ -170,6 +174,9 @@ export const CouponsView: React.FC = () => {
     return c.code.toLowerCase().includes(q) || c.title.toLowerCase().includes(q);
   });
 
+  const totalPages = Math.ceil(filteredCoupons.length / pageSize) || 1;
+  const paginatedCoupons = filteredCoupons.slice((page - 1) * pageSize, page * pageSize);
+
   const totalCoupons = coupons.length;
   const activeCoupons = coupons.filter((c) => c.is_active).length;
   const totalRedeemed = coupons.reduce((acc, c) => acc + (c.used_count || 0), 0);
@@ -298,7 +305,7 @@ export const CouponsView: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filteredCoupons.map((c) => (
+                paginatedCoupons.map((c) => (
                   <tr key={c.id} className="hover:bg-zinc-800/30 transition">
                     <td className="py-3 px-4">
                       <div className="flex items-center space-x-2">
@@ -404,6 +411,34 @@ export const CouponsView: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {filteredCoupons.length > 0 && (
+          <div className="px-5 py-3.5 bg-zinc-950/70 border-t border-zinc-800 flex items-center justify-between text-xs text-zinc-400">
+            <div>
+              Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, filteredCoupons.length)} of {filteredCoupons.length} coupons
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-zinc-300 transition"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="font-semibold text-white px-2">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 text-zinc-300 transition"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* CREATE COUPON MODAL */}

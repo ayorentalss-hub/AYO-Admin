@@ -8,7 +8,7 @@ export const TripsView: React.FC = () => {
   const [trips, setTrips] = useState<TripItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState<number>(1);
-  const pageSize = 15;
+  const pageSize = 20;
 
   // Force modal state
   const [forceTarget, setForceTarget] = useState<{ id: string; action: 'complete' | 'cancel' } | null>(null);

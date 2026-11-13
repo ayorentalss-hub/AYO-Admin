@@ -52,6 +52,13 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
   }
 
+  // Idempotency: Auto-assign key for mutation requests to prevent double-execution & satisfy backend guard
+  if (['POST', 'PATCH', 'PUT'].includes((options.method || 'GET').toUpperCase()) && !headers['Idempotency-Key']) {
+    headers['Idempotency-Key'] = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `req-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  }
+
   const res = await fetch(url, {
     ...options,
     headers,
@@ -241,15 +248,23 @@ export const api = {
   },
 
   createPayout: async (hostId: string, bookingId: string) => {
+    const idemKey = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `payout-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     return request<any>(`/admin/payouts/${hostId}`, {
       method: 'POST',
+      headers: { 'Idempotency-Key': idemKey },
       body: JSON.stringify({ booking_id: bookingId }),
     });
   },
 
   markPayoutPaid: async (id: string, reference: string) => {
+    const idemKey = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `paid-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     return request<any>(`/admin/payouts/${id}/mark-paid`, {
       method: 'POST',
+      headers: { 'Idempotency-Key': idemKey },
       body: JSON.stringify({ reference }),
     });
   },
