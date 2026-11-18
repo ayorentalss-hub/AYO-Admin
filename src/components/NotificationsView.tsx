@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { api } from '../api/client';
 import { type UserItem } from '../types';
+import { showToast } from './Toast';
 
 type TargetAudience = 'ALL' | 'HOSTS' | 'CUSTOMERS' | 'USER';
 
@@ -67,6 +68,25 @@ export const NotificationsView: React.FC = () => {
   const [totalPages, setTotalPages] = useState<number>(1);
   const [totalCount, setTotalCount] = useState<number>(0);
   const pageSize = 20;
+
+  // Diagnostics State
+  const [diagnostics, setDiagnostics] = useState<{
+    success: boolean;
+    firebase: { initialized: boolean; channelId: string };
+    tokens: { activeDeviceTokens: number; totalDeviceTokens: number; usersWithFcmToken: number };
+    instructions: string;
+  } | null>(null);
+
+  const fetchDiagnostics = async () => {
+    try {
+      const res = await api.getNotificationDiagnostics();
+      setDiagnostics(res);
+    } catch {}
+  };
+
+  useEffect(() => {
+    fetchDiagnostics();
+  }, []);
 
   // Search users with debounce
   useEffect(() => {
@@ -190,8 +210,21 @@ export const NotificationsView: React.FC = () => {
         },
       });
 
+      const delivery = (res as any)?.delivery;
+      const isZeroTokens = delivery?.totalDevicesFound === 0 || delivery?.status === 'NO_DEVICES_REGISTERED';
+
+      if (isZeroTokens) {
+        showToast(
+          res.message || 'Notification recorded in DB, but 0 active mobile device tokens found in DB. Ensure host/customer logs in to mobile app to sync FCM token.',
+          'warning',
+          6500
+        );
+      } else {
+        showToast(res.message || 'Push notification dispatched successfully!', 'success', 5000);
+      }
+
       setStatusFeedback({
-        type: 'success',
+        type: isZeroTokens ? 'error' : 'success',
         text: res.message || 'Push notification dispatched successfully!',
       });
 
@@ -202,10 +235,12 @@ export const NotificationsView: React.FC = () => {
       setSelectedUser(null);
       setUserSearchQuery('');
 
-      // Refresh history
+      // Refresh history & diagnostics
       fetchHistory(1);
+      fetchDiagnostics();
       setPage(1);
     } catch (err: any) {
+      showToast(err?.message || 'Failed to dispatch notification.', 'error', 5000);
       setStatusFeedback({
         type: 'error',
         text: err?.message || 'Failed to dispatch notification.',
@@ -251,14 +286,36 @@ export const NotificationsView: React.FC = () => {
             Dispatch instant high-priority push notifications with images to all users, specific roles, or individual accounts.
           </p>
         </div>
-        <button
-          onClick={() => fetchHistory(page)}
-          disabled={historyLoading}
-          className="flex items-center space-x-1.5 py-1.5 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-zinc-300 hover:text-white transition w-fit"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${historyLoading ? 'animate-spin' : ''}`} />
-          <span>Refresh History</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {diagnostics && (
+            <div
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold ${
+                diagnostics.tokens.activeDeviceTokens > 0
+                  ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300'
+                  : 'bg-amber-950/40 border-amber-500/30 text-amber-300'
+              }`}
+              title={diagnostics.instructions}
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>
+                {diagnostics.tokens.activeDeviceTokens > 0
+                  ? `${diagnostics.tokens.activeDeviceTokens} Device${diagnostics.tokens.activeDeviceTokens > 1 ? 's' : ''} Online`
+                  : '0 Devices Registered'}
+              </span>
+            </div>
+          )}
+          <button
+            onClick={() => {
+              fetchHistory(page);
+              fetchDiagnostics();
+            }}
+            disabled={historyLoading}
+            className="flex items-center space-x-1.5 py-1.5 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-zinc-300 hover:text-white transition w-fit"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${historyLoading ? 'animate-spin' : ''}`} />
+            <span>Refresh History</span>
+          </button>
+        </div>
       </div>
 
       {/* Status Feedback Banner */}

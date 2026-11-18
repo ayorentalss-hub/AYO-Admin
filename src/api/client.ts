@@ -357,6 +357,16 @@ export const api = {
     });
   },
 
+  getNotificationDiagnostics: async () => {
+    return request<{
+      success: boolean;
+      firebase: { initialized: boolean; channelId: string };
+      tokens: { activeDeviceTokens: number; totalDeviceTokens: number; usersWithFcmToken: number };
+      instructions: string;
+      recentDevices?: any[];
+    }>('/admin/notifications/diagnostics');
+  },
+
   uploadNotificationBanner: async (base64: string, mimeType?: string, filename?: string) => {
     return request<{ success: boolean; url: string }>('/admin/notifications/upload-banner', {
       method: 'POST',

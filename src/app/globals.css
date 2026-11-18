@@ -25,3 +25,16 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(220, 38, 38, 0.8);
 }
+
+@keyframes shrink-width {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+.animate-shrink-width {
+  animation-name: shrink-width;
+}

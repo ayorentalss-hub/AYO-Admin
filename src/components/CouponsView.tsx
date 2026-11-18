@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import type { CouponItem, CouponUsageItem, CreateCouponInput } from '../types';
 import { api } from '../api/client';
+import { showToast } from './Toast';
 
 export const CouponsView: React.FC = () => {
   const [coupons, setCoupons] = useState<CouponItem[]>([]);
@@ -82,8 +83,9 @@ export const CouponsView: React.FC = () => {
       setCoupons((prev) =>
         prev.map((c) => (c.id === id ? { ...c, is_active: !c.is_active } : c))
       );
+      showToast('Coupon status updated successfully!', 'success');
     } catch (err: any) {
-      alert(err?.message || 'Failed to toggle coupon status');
+      showToast(err?.message || 'Failed to toggle coupon status', 'error');
     }
   };
 
@@ -92,8 +94,9 @@ export const CouponsView: React.FC = () => {
     try {
       await api.deleteCoupon(id);
       setCoupons((prev) => prev.filter((c) => c.id !== id));
+      showToast(`Coupon "${code}" deleted successfully!`, 'success');
     } catch (err: any) {
-      alert(err?.message || 'Failed to delete coupon');
+      showToast(err?.message || 'Failed to delete coupon', 'error');
     }
   };
 

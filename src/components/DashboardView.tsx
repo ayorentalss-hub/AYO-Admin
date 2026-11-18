@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { DollarSign, TrendingUp, AlertTriangle, RefreshCcw, CreditCard, Layers } from 'lucide-react';
 import type { LedgerSummary } from '../types';
 import { api } from '../api/client';
+import { showToast } from './Toast';
 
 interface DashboardViewProps {
   ledger: LedgerSummary | null;
@@ -27,9 +28,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ ledger, alerts, on
       setRetrying(true);
       const res = await api.retryRefunds();
       setRetryResult(`Attempted: ${res.attempted}, Still Pending: ${res.still_pending}`);
+      showToast(`Refunds retry complete: ${res.attempted} attempted, ${res.still_pending} pending`, 'info');
       onRefresh();
     } catch (err: any) {
-      alert(`Retry failed: ${err.message}`);
+      showToast(`Retry failed: ${err.message}`, 'error');
     } finally {
       setRetrying(false);
     }

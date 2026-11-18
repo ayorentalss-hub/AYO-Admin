@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Navigation, CheckSquare, XSquare, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { type TripItem } from '../types';
 import { api } from '../api/client';
+import { showToast } from './Toast';
 
 export const TripsView: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -35,18 +36,18 @@ export const TripsView: React.FC = () => {
   const handleForceTrip = async () => {
     if (!forceTarget) return;
     if (!reason.trim()) {
-      alert('Please specify an administrative reason.');
+      showToast('Please specify an administrative reason.', 'warning');
       return;
     }
     try {
       setSubmitting(true);
       await api.forceTrip(forceTarget.id, forceTarget.action, reason.trim());
-      alert(`Trip forced to ${forceTarget.action === 'complete' ? 'COMPLETED' : 'CANCELLED'}!`);
+      showToast(`Trip forced to ${forceTarget.action === 'complete' ? 'COMPLETED' : 'CANCELLED'}!`, 'success');
       setForceTarget(null);
       setReason('');
       fetchTrips();
     } catch (err: any) {
-      alert(`Force action failed: ${err.message}`);
+      showToast(`Force action failed: ${err.message}`, 'error');
     } finally {
       setSubmitting(false);
     }

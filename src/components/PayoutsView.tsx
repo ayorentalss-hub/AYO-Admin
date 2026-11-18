@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { type PayoutItem } from '../types';
 import { api } from '../api/client';
+import { showToast } from './Toast';
 
 interface CompletedTrip {
   id: string;
@@ -172,7 +173,7 @@ export const PayoutsView: React.FC = () => {
     if (!payTargetTrip) return;
     const hostId = payTargetTrip.host?.id || payTargetTrip.host_id;
     if (!hostId) {
-      alert('Host ID not found for this trip.');
+      showToast('Host ID not found for this trip.', 'error');
       return;
     }
 
@@ -194,12 +195,12 @@ export const PayoutsView: React.FC = () => {
         await api.markPayoutPaid(payoutId, ref);
       }
 
-      alert(`Host payout of ${formatPrice(hostShare(payTargetTrip))} marked as PAID!\nReference/UTR: ${ref}`);
+      showToast(`Host payout of ${formatPrice(hostShare(payTargetTrip))} marked as PAID!\nReference/UTR: ${ref}`, 'success');
       setPayTargetTrip(null);
       setPayoutReference('');
       refreshAll();
     } catch (err: any) {
-      alert(`Payout failed: ${err?.message || 'Server error'}`);
+      showToast(`Payout failed: ${err?.message || 'Server error'}`, 'error');
     } finally {
       setActionLoading(false);
     }
@@ -211,12 +212,12 @@ export const PayoutsView: React.FC = () => {
     try {
       setActionLoading(true);
       await api.markPayoutPaid(targetPayout.id, markPaidRef.trim());
-      alert('Payout marked as PAID successfully! Host notified.');
+      showToast('Payout marked as PAID successfully! Host notified.', 'success');
       setTargetPayout(null);
       setMarkPaidRef('');
       fetchPayouts();
     } catch (err: any) {
-      alert(`Mark paid failed: ${err?.message || 'Server error'}`);
+      showToast(`Mark paid failed: ${err?.message || 'Server error'}`, 'error');
     } finally {
       setActionLoading(false);
     }

@@ -16,6 +16,7 @@ import { NotificationsView } from './components/NotificationsView';
 import { AuditLogsView } from './components/AuditLogsView';
 import { SettingsView } from './components/SettingsView';
 import { LoginPage } from './components/LoginPage';
+import { ToastContainer } from './components/Toast';
 import { type LedgerSummary } from './types';
 import { api, getToken, clearToken } from './api/client';
 import { AlertTriangle, RefreshCw, LogOut } from 'lucide-react';
@@ -209,6 +210,7 @@ export const AdminDashboardApp: React.FC = () => {
   return (
     <ErrorBoundary>
       <div className="h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans overflow-hidden">
+        <ToastContainer />
         <Header
           onRefresh={fetchGlobalStats}
           isLoading={isLoading}
