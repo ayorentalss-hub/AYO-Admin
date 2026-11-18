@@ -147,13 +147,12 @@ export const HostKycModal: React.FC<HostKycModalProps> = ({
                 <h3 className="text-lg font-bold text-white tracking-tight">Host Verification & Document Inspection</h3>
                 {data && (
                   <span
-                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
-                      data.kyc?.status === 'VERIFIED'
+                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${data.kyc?.status === 'VERIFIED'
                         ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                         : data.kyc?.status === 'FAILED'
-                        ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                        : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                    }`}
+                          ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                          : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                      }`}
                   >
                     {data.kyc?.status || 'PENDING'}
                   </span>
@@ -210,9 +209,8 @@ export const HostKycModal: React.FC<HostKycModalProps> = ({
                       />
                     ) : null}
                     <div
-                      className={`w-16 h-16 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 font-bold text-xl flex-shrink-0 ${
-                        (data.profile?.avatar_url || data.profile?.avatarUrl || data.user?.avatar_url || data.user?.avatarUrl) ? 'hidden' : ''
-                      }`}
+                      className={`w-16 h-16 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 font-bold text-xl flex-shrink-0 ${(data.profile?.avatar_url || data.profile?.avatarUrl || data.user?.avatar_url || data.user?.avatarUrl) ? 'hidden' : ''
+                        }`}
                     >
                       {(data.user.name || data.profile?.first_name || 'H')[0].toUpperCase()}
                     </div>
@@ -314,13 +312,12 @@ export const HostKycModal: React.FC<HostKycModalProps> = ({
                       <div className="pt-3 border-t border-slate-800 flex items-center justify-between flex-wrap gap-2">
                         <div className="flex items-center space-x-2">
                           <span className="text-[11px] text-slate-400">Bank KYC Status:</span>
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                            data.kyc?.status === 'VERIFIED'
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${data.kyc?.status === 'VERIFIED'
                               ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                               : data.kyc?.status === 'FAILED'
-                              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                              : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                          }`}>
+                                ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                                : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                            }`}>
                             {data.kyc?.status || 'PENDING'}
                           </span>
                         </div>
@@ -333,17 +330,24 @@ export const HostKycModal: React.FC<HostKycModalProps> = ({
                             className="px-3 py-1.5 text-xs font-bold text-rose-400 hover:text-white bg-rose-500/10 hover:bg-rose-600 border border-rose-500/20 rounded-xl transition flex items-center space-x-1"
                           >
                             <XCircle className="w-3.5 h-3.5" />
-                            <span>Reject & Send Reason</span>
+                            <span>{data.kyc?.status === 'VERIFIED' ? 'Revoke Bank Details' : 'Reject & Send Reason'}</span>
                           </button>
-                          <button
-                            type="button"
-                            onClick={handleApproveNpci}
-                            disabled={actionLoading}
-                            className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-md transition flex items-center space-x-1.5"
-                          >
-                            {actionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <CheckCircle className="w-3.5 h-3.5" />}
-                            <span>Approve Bank Details</span>
-                          </button>
+                          {data.kyc?.status === 'VERIFIED' ? (
+                            <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold">
+                              <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>Bank Details Verified ✓</span>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={handleApproveNpci}
+                              disabled={actionLoading}
+                              className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-md transition flex items-center space-x-1.5"
+                            >
+                              {actionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                              <span>Approve Bank Details</span>
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -445,13 +449,12 @@ export const HostKycModal: React.FC<HostKycModalProps> = ({
                       <div className="pt-3 border-t border-slate-800 flex items-center justify-between flex-wrap gap-2">
                         <div className="flex items-center space-x-2">
                           <span className="text-[11px] text-slate-400">NPCI KYC Status:</span>
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                            data.kyc.status === 'VERIFIED'
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${data.kyc.status === 'VERIFIED'
                               ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                               : data.kyc.status === 'FAILED'
-                              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                              : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                          }`}>
+                                ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                                : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                            }`}>
                             {data.kyc.status || 'PENDING'}
                           </span>
                         </div>
@@ -464,17 +467,24 @@ export const HostKycModal: React.FC<HostKycModalProps> = ({
                             className="px-3 py-1.5 text-xs font-bold text-rose-400 hover:text-white bg-rose-500/10 hover:bg-rose-600 border border-rose-500/20 rounded-xl transition flex items-center space-x-1"
                           >
                             <XCircle className="w-3.5 h-3.5" />
-                            <span>Reject & Send Reason</span>
+                            <span>{data.kyc.status === 'VERIFIED' ? 'Revoke NPCI' : 'Reject & Send Reason'}</span>
                           </button>
-                          <button
-                            type="button"
-                            onClick={handleApproveNpci}
-                            disabled={actionLoading}
-                            className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-md transition flex items-center space-x-1.5"
-                          >
-                            {actionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <CheckCircle className="w-3.5 h-3.5" />}
-                            <span>Approve & Verify NPCI</span>
-                          </button>
+                          {data.kyc.status === 'VERIFIED' ? (
+                            <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold">
+                              <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>NPCI Verified ✓</span>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={handleApproveNpci}
+                              disabled={actionLoading}
+                              className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-md transition flex items-center space-x-1.5"
+                            >
+                              {actionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                              <span>Approve & Verify NPCI</span>
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -553,11 +563,10 @@ export const HostKycModal: React.FC<HostKycModalProps> = ({
                   <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2.5">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-300">DL Front Photo</span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        data.profile?.driving_licence_front_url || data.profile?.documents?.dl_front?.url
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${data.profile?.driving_licence_front_url || data.profile?.documents?.dl_front?.url
                           ? 'bg-emerald-500/20 text-emerald-400'
                           : 'bg-slate-800 text-slate-500'
-                      }`}>
+                        }`}>
                         {data.profile?.driving_licence_front_url || data.profile?.documents?.dl_front?.url ? 'UPLOADED' : 'NOT UPLOADED'}
                       </span>
                     </div>
@@ -589,11 +598,10 @@ export const HostKycModal: React.FC<HostKycModalProps> = ({
                   <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2.5">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-300">DL Back Photo</span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        data.profile?.driving_licence_back_url || data.profile?.documents?.dl_back?.url
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${data.profile?.driving_licence_back_url || data.profile?.documents?.dl_back?.url
                           ? 'bg-emerald-500/20 text-emerald-400'
                           : 'bg-slate-800 text-slate-500'
-                      }`}>
+                        }`}>
                         {data.profile?.driving_licence_back_url || data.profile?.documents?.dl_back?.url ? 'UPLOADED' : 'NOT UPLOADED'}
                       </span>
                     </div>
@@ -625,11 +633,10 @@ export const HostKycModal: React.FC<HostKycModalProps> = ({
                   <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 space-y-2.5">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-300">Live Selfie</span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        data.profile?.selfie_url || data.profile?.documents?.selfie?.url
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${data.profile?.selfie_url || data.profile?.documents?.selfie?.url
                           ? 'bg-emerald-500/20 text-emerald-400'
                           : 'bg-slate-800 text-slate-500'
-                      }`}>
+                        }`}>
                         {data.profile?.selfie_url || data.profile?.documents?.selfie?.url ? 'UPLOADED' : 'NOT UPLOADED'}
                       </span>
                     </div>
@@ -686,13 +693,12 @@ export const HostKycModal: React.FC<HostKycModalProps> = ({
                             </span>
                           </div>
                           <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold self-start sm:self-auto ${
-                              v.status === 'ACTIVE'
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold self-start sm:self-auto ${v.status === 'ACTIVE'
                                 ? 'bg-emerald-500/20 text-emerald-400'
                                 : v.status === 'PENDING_REVIEW'
-                                ? 'bg-amber-500/20 text-amber-300'
-                                : 'bg-slate-800 text-slate-400'
-                            }`}
+                                  ? 'bg-amber-500/20 text-amber-300'
+                                  : 'bg-slate-800 text-slate-400'
+                              }`}
                           >
                             {v.status}
                           </span>
@@ -799,15 +805,17 @@ export const HostKycModal: React.FC<HostKycModalProps> = ({
               <span>Reject / Revoke KYC</span>
             </button>
 
-            <button
-              type="button"
-              onClick={handleApprove}
-              disabled={actionLoading}
-              className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-lg shadow-emerald-950/40 transition flex items-center space-x-1.5"
-            >
-              {actionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <CheckCircle className="w-3.5 h-3.5" />}
-              <span>{data?.kyc?.status === 'VERIFIED' ? 'Re-Approve & Verify KYC' : 'Approve & Verify KYC'}</span>
-            </button>
+            {data?.kyc?.status !== 'VERIFIED' && data?.user?.kyc_status !== 'VERIFIED' && (
+              <button
+                type="button"
+                onClick={handleApprove}
+                disabled={actionLoading}
+                className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl shadow-lg shadow-emerald-950/40 transition flex items-center space-x-1.5"
+              >
+                {actionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                <span>Approve & Verify KYC</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

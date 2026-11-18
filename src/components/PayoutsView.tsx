@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   CreditCard,
   CheckCircle,
@@ -128,14 +128,27 @@ export const PayoutsView: React.FC = () => {
     return Math.max(0, trip.rent_paise - trip.platform_fee_paise);
   };
 
-  // Already processed booking IDs
-  const alreadyProcessedBookingIds = new Set(
-    payouts.map((p) => p.booking_id).filter(Boolean)
+  // Map of payouts by booking ID (supports both snake_case and camelCase)
+  const payoutsByBookingId = useMemo(() => {
+    const map = new Map<string, PayoutItem>();
+    payouts.forEach((p) => {
+      const bId = p.booking_id || (p as any).bookingId;
+      if (bId) map.set(bId, p);
+    });
+    return map;
+  }, [payouts]);
+
+  // Already settled (PAID) booking IDs - excluded from pending trips list
+  const alreadyPaidBookingIds = new Set(
+    payouts
+      .filter((p) => p.status === 'PAID')
+      .map((p) => p.booking_id || (p as any).bookingId)
+      .filter(Boolean)
   );
 
-  // Eligible completed trips (FULL payment split & not yet paid)
+  // Eligible completed trips (FULL payment split & not yet settled)
   const eligibleTrips = completedTrips.filter(
-    (t) => t.split_type === 'FULL' && !alreadyProcessedBookingIds.has(t.id)
+    (t) => t.split_type === 'FULL' && !alreadyPaidBookingIds.has(t.id)
   );
 
   const filteredTrips = eligibleTrips.filter((t) => {
@@ -154,7 +167,7 @@ export const PayoutsView: React.FC = () => {
   const totalLedgerPages = Math.ceil(payouts.length / pageSize) || 1;
   const paginatedLedger = payouts.slice((ledgerPage - 1) * pageSize, ledgerPage * pageSize);
 
-  // Direct Pay Handler: Creates payout and optionally records bank UTR
+  // Direct Pay Handler: Creates payout and marks it as PAID with reference
   const handleProcessDirectPay = async () => {
     if (!payTargetTrip) return;
     const hostId = payTargetTrip.host?.id || payTargetTrip.host_id;
@@ -165,15 +178,23 @@ export const PayoutsView: React.FC = () => {
 
     try {
       setActionLoading(true);
-      // 1. Create Payout Record
-      const created = await api.createPayout(hostId, payTargetTrip.id);
+      // 1. Check if payout was already created for this trip
+      const existingPayout = payoutsByBookingId.get(payTargetTrip.id);
+      let payoutId = existingPayout?.id;
 
-      // 2. If UTR was provided, also mark it as PAID immediately
-      if (payoutReference.trim() && created?.id) {
-        await api.markPayoutPaid(created.id, payoutReference.trim());
+      if (!payoutId) {
+        // Create new Payout Record
+        const created = await api.createPayout(hostId, payTargetTrip.id);
+        payoutId = created?.id;
       }
 
-      alert('Host payout processed successfully! Recorded in Ledger.');
+      // 2. Mark as PAID immediately with entered UTR or auto manual reference
+      const ref = payoutReference.trim() || `MANUAL-UPI-${Date.now().toString().slice(-6)}`;
+      if (payoutId) {
+        await api.markPayoutPaid(payoutId, ref);
+      }
+
+      alert(`Host payout of ${formatPrice(hostShare(payTargetTrip))} marked as PAID!\nReference/UTR: ${ref}`);
       setPayTargetTrip(null);
       setPayoutReference('');
       refreshAll();
@@ -458,26 +479,47 @@ export const PayoutsView: React.FC = () => {
 
                         {/* Action */}
                         <td className="py-3 px-4 text-right">
-                          {isVerified ? (
-                            <button
-                              onClick={() => {
-                                setPayTargetTrip(trip);
-                                setPayoutReference('');
-                              }}
-                              className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-950/40 transition inline-flex items-center gap-1.5"
-                            >
-                              <span>Pay {formatPrice(due)}</span>
-                              <span>→</span>
-                            </button>
-                          ) : (
-                            <button
-                              disabled
-                              className="px-3.5 py-1.5 rounded-xl text-[11px] font-bold bg-zinc-800 text-zinc-500 border border-zinc-700/60 cursor-not-allowed"
-                              title="Payout is locked because Host KYC / Bank details are unverified. Please verify in Users & KYC first."
-                            >
-                              Verify Bank First
-                            </button>
-                          )}
+                          {(() => {
+                            const existingPayout = payoutsByBookingId.get(trip.id);
+                            if (existingPayout && existingPayout.status === 'PENDING') {
+                              return (
+                                <button
+                                  onClick={() => {
+                                    setTargetPayout(existingPayout);
+                                    setMarkPaidRef('');
+                                  }}
+                                  className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-zinc-950 shadow-md transition inline-flex items-center gap-1.5"
+                                  title="Payout record created but pending UTR. Click to record banking UTR reference and complete settlement."
+                                >
+                                  <span>Record UTR (Pending)</span>
+                                  <span>→</span>
+                                </button>
+                              );
+                            }
+                            if (isVerified) {
+                              return (
+                                <button
+                                  onClick={() => {
+                                    setPayTargetTrip(trip);
+                                    setPayoutReference('');
+                                  }}
+                                  className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-950/40 transition inline-flex items-center gap-1.5"
+                                >
+                                  <span>Pay {formatPrice(due)}</span>
+                                  <span>→</span>
+                                </button>
+                              );
+                            }
+                            return (
+                              <button
+                                disabled
+                                className="px-3.5 py-1.5 rounded-xl text-[11px] font-bold bg-zinc-800 text-zinc-500 border border-zinc-700/60 cursor-not-allowed"
+                                title="Payout is locked because Host KYC / Bank details are unverified. Please verify in Users & KYC first."
+                              >
+                                Verify Bank First
+                              </button>
+                            );
+                          })()}
                         </td>
                       </tr>
                     );
@@ -680,7 +722,15 @@ export const PayoutsView: React.FC = () => {
               </div>
             </div>
 
-            {/* Optional UTR input */}
+            {/* Instruction Notice */}
+            <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300 space-y-1">
+              <p className="font-semibold text-blue-200">ℹ️ Direct Bank / UPI Transfer:</p>
+              <p className="text-[11px] text-zinc-300 leading-relaxed">
+                Apne banking app ya UPI app se upar diye gaye host account me exact <span className="text-emerald-400 font-bold">{formatPrice(hostShare(payTargetTrip))}</span> transfer karein. Niche Bank UTR ya UPI Ref ID daal kar confirm karein taki payout turant <span className="text-emerald-400 font-bold">PAID</span> mark ho jaye aur host ko notification chala jaye.
+              </p>
+            </div>
+
+            {/* UTR input */}
             <div>
               <label className="block text-xs font-bold text-zinc-300 uppercase tracking-wider mb-1.5">
                 Bank UTR / Transaction Reference (Optional)

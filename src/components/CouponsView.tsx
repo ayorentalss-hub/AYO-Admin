@@ -651,7 +651,7 @@ export const CouponsView: React.FC = () => {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-zinc-950 text-zinc-400 uppercase font-semibold border-b border-zinc-800">
                     <tr>
-                      <th className="py-2.5 px-3">User ID</th>
+                      <th className="py-2.5 px-3">Redeemed By</th>
                       <th className="py-2.5 px-3">Booking ID</th>
                       <th className="py-2.5 px-3">Discount</th>
                       <th className="py-2.5 px-3">Final Amount</th>
@@ -661,10 +661,9 @@ export const CouponsView: React.FC = () => {
                   <tbody className="divide-y divide-zinc-800/60 font-mono">
                     {usages.map((u) => (
                       <tr key={u.usage_id} className="hover:bg-zinc-800/20">
-                        <td className="py-2.5 px-3 text-zinc-300">
-                          <span className="truncate max-w-[120px] inline-block" title={u.user_id}>
-                            {u.user_id}
-                          </span>
+                        <td className="py-2.5 px-3 text-zinc-300 font-sans">
+                          <p className="font-semibold text-white text-xs">{u.user_name || 'Customer'}</p>
+                          <p className="text-[10px] text-zinc-400 font-mono">{u.user_phone || u.user_email || u.user_id}</p>
                         </td>
                         <td className="py-2.5 px-3 text-zinc-400">
                           <span className="truncate max-w-[120px] inline-block" title={u.booking_id || ''}>

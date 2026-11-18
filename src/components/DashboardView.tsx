@@ -110,7 +110,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ ledger, alerts, on
             </div>
           </div>
           <p className="text-2xl font-black text-amber-400 mt-3 tracking-tight">
-            {formatRupees(ledger?.pending_payouts_paise)}
+            {formatRupees(ledger?.pending_payouts_paise ?? (ledger as any)?.payouts_pending_paise ?? (ledger as any)?.payouts_due_paise)}
           </p>
           <p className="text-xs text-slate-400 mt-1">Awaiting batch transfer to host bank accounts</p>
         </div>
@@ -126,7 +126,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ ledger, alerts, on
             </div>
           </div>
           <p className="text-2xl font-black text-white mt-3 tracking-tight">
-            {formatRupees(ledger?.completed_payouts_paise)}
+            {formatRupees(ledger?.completed_payouts_paise ?? (ledger as any)?.payouts_paid_paise)}
           </p>
           <p className="text-xs text-slate-400 mt-1">Disbursed to hosts via RazorpayX / UPI</p>
         </div>

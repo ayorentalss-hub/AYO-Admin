@@ -347,5 +347,8 @@ export interface CouponUsageItem {
   original_amount_inr: number;
   discounted_amount_inr: number;
   used_at: string;
+  user_name?: string | null;
+  user_phone?: string | null;
+  user_email?: string | null;
 }
 
