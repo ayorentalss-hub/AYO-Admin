@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DollarSign, TrendingUp, AlertTriangle, RefreshCcw, CreditCard, Layers } from 'lucide-react';
 import type { LedgerSummary } from '../types';
 import { api } from '../api/client';
@@ -13,6 +13,11 @@ interface DashboardViewProps {
 export const DashboardView: React.FC<DashboardViewProps> = ({ ledger, alerts, onRefresh }) => {
   const [retrying, setRetrying] = useState(false);
   const [retryResult, setRetryResult] = useState<string | null>(null);
+
+  // Auto-refresh fresh ledger balances whenever user opens Financial Ledger tab
+  useEffect(() => {
+    onRefresh();
+  }, []);
 
   const formatRupees = (paise?: number) => {
     if (paise === undefined || paise === null) return '₹0.00';

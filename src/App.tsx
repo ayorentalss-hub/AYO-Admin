@@ -195,7 +195,7 @@ export const AdminDashboardApp: React.FC = () => {
     if (isAuthenticated) {
       fetchGlobalStats();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, activeTab]);
 
   const handleLoginSuccess = () => {
     setIsAuthenticated(true);
@@ -240,7 +240,7 @@ export const AdminDashboardApp: React.FC = () => {
 
             {activeTab === 'payments' && <PaymentsView />}
 
-            {activeTab === 'payouts' && <PayoutsView />}
+            {activeTab === 'payouts' && <PayoutsView onRefreshStats={fetchGlobalStats} />}
 
             {activeTab === 'coupons' && <CouponsView />}
 

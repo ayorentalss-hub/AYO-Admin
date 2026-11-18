@@ -57,7 +57,11 @@ interface CompletedTrip {
   };
 }
 
-export const PayoutsView: React.FC = () => {
+interface PayoutsViewProps {
+  onRefreshStats?: () => void;
+}
+
+export const PayoutsView: React.FC<PayoutsViewProps> = ({ onRefreshStats }) => {
   const [activeTab, setActiveTab] = useState<'PENDING_TRIPS' | 'LEDGER'>('PENDING_TRIPS');
 
   // Completed trips awaiting payout
@@ -109,6 +113,7 @@ export const PayoutsView: React.FC = () => {
   const refreshAll = () => {
     fetchCompletedTrips();
     fetchPayouts();
+    onRefreshStats?.();
   };
 
   useEffect(() => {
